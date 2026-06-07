@@ -11,6 +11,7 @@ import io
 import os
 import glob
 import shutil
+import signal
 import subprocess
 import tempfile
 import threading
@@ -114,6 +115,19 @@ def _pkill(pattern: str) -> None:
         pass
 
 
+def _kill_group(proc) -> None:
+    """整组杀掉一次渲染(Popen 用 start_new_session,主进程+全部 Chrome 子进程同属一个进程组)。
+    超时时一刀清干净,既释放渲染锁,又不留继承管道的子进程把后续渲染拖死。"""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except Exception:
+        pass
+    try:
+        proc.wait(timeout=5)        # 回收僵尸,别留 defunct
+    except Exception:
+        pass
+
+
 def kill_stale_chrome() -> None:
     """全局清理本服务**所有**渲染 Chrome(命令行带 kdash-render 标记)。
     仅用于:服务启动时清上一轮残留、以及主循环整轮全失败的兜底扫除。
@@ -139,29 +153,37 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
         scale = min(rc.width / bw, rc.height / bh)
         if scale <= 0:
             scale = 1.0
+        cmd = [
+            chrome, "--headless", "--no-sandbox", "--disable-gpu",
+            "--no-crashpad", "--disable-crash-reporter",
+            "--disable-dev-shm-usage", "--hide-scrollbars",
+            # 防首启卡顿/后台网络等待(全新 user-data-dir 否则会触发首启流程,在弱机上可拖到超时)
+            "--no-first-run", "--no-default-browser-check",
+            "--disable-background-networking", "--disable-sync",
+            "--disable-default-apps", "--disable-component-update",
+            "--disable-extensions", "--disable-features=Translate,OptimizationHints",
+            "--mute-audio", "--metrics-recording-only",
+            f"--force-device-scale-factor={scale:.4f}",
+            f"--window-size={bw},{bh}",
+            "--default-background-color=FFFFFFFF",
+            f"--user-data-dir={td}/ud",
+            f"--screenshot={png_path}", f"file://{html_path}",
+        ]
         # 串行化:同一时刻只跑一个 Chrome(预览与主循环互不抢资源)。
-        # 超时/缺图时只杀**这次**渲染自己的 Chrome 树(td 路径唯一),不碰其它渲染。
-        try:
-            with _RENDER_MUTEX:
-                subprocess.run([
-                    chrome, "--headless", "--no-sandbox", "--disable-gpu",
-                    "--no-crashpad", "--disable-crash-reporter",
-                    "--disable-dev-shm-usage", "--hide-scrollbars",
-                    # 防首启卡顿/后台网络等待(全新 user-data-dir 否则会触发首启流程,在弱机上可拖到超时)
-                    "--no-first-run", "--no-default-browser-check",
-                    "--disable-background-networking", "--disable-sync",
-                    "--disable-default-apps", "--disable-component-update",
-                    "--disable-extensions", "--disable-features=Translate,OptimizationHints",
-                    "--mute-audio", "--metrics-recording-only",
-                    f"--force-device-scale-factor={scale:.4f}",
-                    f"--window-size={bw},{bh}",
-                    "--default-background-color=FFFFFFFF",
-                    f"--user-data-dir={td}/ud",
-                    f"--screenshot={png_path}", f"file://{html_path}",
-                ], capture_output=True, timeout=rc.timeout)
-        except subprocess.TimeoutExpired:
-            _pkill(td)      # 只清这次的 Chrome 树,串行下无并发可误伤
-            raise
+        # ⚠️ 绝不能用 subprocess.run(capture_output=True, timeout=) —— Chrome 派生的渲染子进程会继承
+        # stdout/stderr 管道,run() 超时后的二次 communicate() 会【永久卡在等管道关闭】,既不返回也不超时;
+        # 在串行锁下这一卡就把锁占死 → 预览/主循环全堵死、看板冻屏(2026-06-08 真机踩中)。
+        # 改用 Popen + 独立进程组(start_new_session)+ 丢弃输出(DEVNULL,无管道可卡);
+        # 超时按整个进程组一刀杀(os.killpg),保证锁一定释放、子进程一定清。
+        with _RENDER_MUTEX:
+            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL, start_new_session=True)
+            try:
+                proc.wait(timeout=rc.timeout)
+            except subprocess.TimeoutExpired:
+                _kill_group(proc)       # 整个进程组杀掉(主进程 + 全部渲染子进程)
+                _pkill(td)              # 兜底:按 td 标记再清一遍残留
+                raise
         if not os.path.exists(png_path):
             _pkill(td)
             raise FileNotFoundError("Chromium 未产出截图(已清理本次进程,下轮自动恢复)")
