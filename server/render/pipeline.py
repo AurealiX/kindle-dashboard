@@ -178,14 +178,23 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
         with _RENDER_MUTEX:
             proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL, start_new_session=True)
+            # ⚠️ 截图一写好就立刻收工,绝不等 Chrome 自己退出(2026-06-08 真机定位):
+            # 国内/弱网下,全新 profile 的 Chrome 截完图后会被 GoogleUpdater(--wake-all)+ GCM 注册
+            # 的后台联网拖住 —— 连 Google 被 GFW 拦截,SSL 握手反复失败重试,要 ~30s 才肯退出。
+            # 而 --screenshot 秒级就把 png 写好了。所以轮询到 png 出现就整组杀掉,渲染 30s→~1s。
+            deadline = time.time() + rc.timeout
             try:
-                proc.wait(timeout=rc.timeout)
-            except subprocess.TimeoutExpired:
-                _kill_group(proc)       # 整个进程组杀掉(主进程 + 全部渲染子进程)
-                _pkill(td)              # 兜底:按 td 标记再清一遍残留
-                raise
-        if not os.path.exists(png_path):
-            _pkill(td)
+                while time.time() < deadline:
+                    if proc.poll() is not None:
+                        break                                        # Chrome 自己退了
+                    if os.path.exists(png_path) and os.path.getsize(png_path) > 0:
+                        time.sleep(0.15)                             # 让它把 png 写完整再收
+                        break
+                    time.sleep(0.1)
+            finally:
+                _kill_group(proc)       # 无论截到没截到都整组清干净(含拖后腿的 updater 子进程)
+                _pkill(td)              # 兜底:按 td 标记再扫一遍
+        if not os.path.exists(png_path) or os.path.getsize(png_path) == 0:
             raise FileNotFoundError("Chromium 未产出截图(已清理本次进程,下轮自动恢复)")
         mode = "L" if rc.grayscale else "RGB"
         shot = Image.open(png_path).convert(mode)
