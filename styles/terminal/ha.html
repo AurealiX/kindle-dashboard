@@ -76,7 +76,7 @@
   {% endfor %}
   </div></div>
 {% else %}
-  <div class="main"><div class="haempty">~ 暂无实体,去设置页添加 HA</div></div>
+  <div class="main"><div class="haempty">{{ t.no_entities }}</div></div>
 {% endif %}
   <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">ENTITIES</span> {{ on_n }}/{{ cards|length }}</span><span class="seg"><span class="dim">{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span></span></div>
 </div>

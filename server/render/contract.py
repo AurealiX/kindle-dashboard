@@ -32,6 +32,7 @@ DASH = "--"
 def empty_top():
     """顶层字段(所有页共享)。"""
     return {
+        "lang": "zh",       # 界面/看板语言 zh|en;模板用它隐藏中国元素(英文版)
         "now": DASH,        # "05/27 14:30"  当前日期+时间
         "time_hm": DASH,    # "14:30"
         "clock": DASH,      # "14:30:05"

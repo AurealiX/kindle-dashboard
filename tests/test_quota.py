@@ -89,7 +89,7 @@ def test_codex_quota_degrades_without_auth(tmp_path):
 
 
 def test_enable_quota_writes_conf(tmp_path):
-    """KINDLE_SKIP_AGENT=1:跳过 launchd/statusLine,但 quota.conf 应写入正确地址与节流。"""
+    """KINDLE_SKIP_AGENT=1:跳过 launchd/statusLine,但应写 conf 并打开 AI 页。"""
     cfg = tmp_path / "config.yaml"
     cfg.write_text(yaml.safe_dump(
         {"server": {"port": 8585}, "ai_usage": {"codex_quota_interval": 600, "claude_quota_interval": 300}},
@@ -100,6 +100,8 @@ def test_enable_quota_writes_conf(tmp_path):
     conf = open(os.path.join(QDIR, "quota.conf"), encoding="utf-8").read()
     assert "KINDLE_RATELIMIT_URL=http://127.0.0.1:8585/api/rate-limits" in conf
     assert "KINDLE_QUOTA_PUSH_INTERVAL=300" in conf
+    saved = yaml.safe_load(cfg.read_text(encoding="utf-8"))
+    assert saved["ai_usage"]["enabled"] is True
 
 
 def test_disable_quota_runs(tmp_path):

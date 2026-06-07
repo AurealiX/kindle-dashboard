@@ -13,7 +13,7 @@
 .empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:14px;letter-spacing:1px;}
 </style></head><body>
 <div class="sheet"><div class="drawing">
-  <div class="mast"><div><div class="pj">KINDLE-DASH · DEVICES</div><div class="ti">设备监控</div></div><div class="meta tnum">{{ now }}</div></div>
+  <div class="mast"><div><div class="pj">KINDLE-DASH · DEVICES</div><div class="ti">{{ t.device_title }}</div></div><div class="meta tnum">{{ now }}</div></div>
   <div class="main">
   {% if device.machines %}
     <div class="grid">
@@ -23,14 +23,14 @@
         {% if m.show.cpu %}<div class="barrow"><div class="kv"><span class="k">CPU</span><span class="v tnum">{{ m.cpu }}%</span></div><div class="gauge thin"><i class="dots" style="width:{{ m.cpu }}%"></i></div></div>{% endif %}
         {% if m.show.mem %}<div class="barrow"><div class="kv"><span class="k">MEM</span><span class="v tnum">{{ m.mem }}%</span></div><div class="gauge thin"><i class="dots" style="width:{{ m.mem }}%"></i></div></div>{% endif %}
         {% if m.show.net or m.show.disk_io %}<div class="io">{% if m.show.net %}<span class="tnum">NET ↓{{ m.net_rx }} ↑{{ m.net_tx }}</span>{% endif %}{% if m.show.disk_io %}<span class="tnum">DSK ↓{{ m.disk_r }} ↑{{ m.disk_w }}</span>{% endif %}</div>{% endif %}
-        {% if m.vols %}<div class="vlab">VOLUMES / 存储</div>
+        {% if m.vols %}<div class="vlab">{{ t.device_volumes }}</div>
           {% for v in m.vols %}<div class="vol barrow" style="margin-bottom:7px;"><div class="kv"><span class="k">{{ v.name }}</span><span class="v tnum">{{ v.used }}/{{ v.total }} · {{ v.pct }}%</span></div><div class="gauge thin"><i class="dots" style="width:{{ v.pct }}%"></i></div></div>{% endfor %}
         {% endif %}
       </div>
     {% endfor %}
     </div>
   {% else %}
-    <div class="empty">— NO DEVICE DATA / 暂无设备数据 —</div>
+    <div class="empty">— {{ t.device_no_data }} —</div>
   {% endif %}
   </div>
   <div class="titleblock">

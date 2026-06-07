@@ -19,8 +19,8 @@
 .legend{font-size:10px;color:var(--ink2);font-weight:600;display:flex;gap:14px;margin-top:7px;}
 .legend i{display:inline-block;width:13px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
 </style></head><body>
-<div class="plate"><div class="name">用量公报<span class="sm">AI USAGE</span></div><div class="ed">{{ now }}</div></div>
-<div class="dateline"><span>CLAUDE CODE · CODEX · CCUSAGE</span><span>今日官方 {{ ai.today_cost }}</span></div>
+<div class="plate"><div class="name">{{ t.ai_nameplate }}<span class="sm">AI USAGE</span></div><div class="ed">{{ now }}</div></div>
+<div class="dateline"><span>CLAUDE CODE · CODEX · CCUSAGE</span><span>{{ t.ai_dateline_today }} {{ ai.today_cost }}</span></div>
 <div class="main">
   <div class="col col-l">
     <div class="kick">Claude 配额</div>

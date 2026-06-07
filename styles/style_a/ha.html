@@ -79,7 +79,7 @@
 {%- set cards = ha.cards if ha else [] -%}
 {%- set on_n = cards|selectattr('on')|list|length -%}
 <div class="masthead">
-  <div><div class="kicker">仪表盘 · 智能家居</div><div class="title">家庭概览</div></div>
+  <div><div class="kicker">{{ t.ha_kicker }}</div><div class="title">{{ t.ha_title }}</div></div>
   <div class="meta">{{ now }}</div>
 </div>
 {% if cards %}
@@ -103,7 +103,7 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="main"><div class="ha-empty"><div class="big">智能家居</div><div>在设置页搜索并添加 Home Assistant 实体</div></div></div>
+<div class="main"><div class="ha-empty"><div class="big">{{ t.ha_empty_big }}</div><div>{{ t.ha_empty_hint }}</div></div></div>
 {% endif %}
-<div class="footer"><span>更新于 {{ time_hm }}</span><span>{% if cards %}{{ on_n }} 开启 · {{ cards|length }} 实体{% endif %}</span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}{{ battery.level }}%</span></div>
+<div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if cards %}{{ on_n }} {{ t.ha_on }} · {{ cards|length }} {{ t.ha_entities }}{% endif %}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span></div>
 </body></html>

@@ -5,13 +5,17 @@
 诚实降级:采集/渲染单点失败只跳过该项,保留旧页;全失败杀僵尸下轮恢复。
 """
 import io
+import json
 import os
+import re
+import socket
+import subprocess
 import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Request
 from fastapi.responses import Response, HTMLResponse, JSONResponse
 
 from server.config import schema
@@ -23,6 +27,9 @@ from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.environ.get("KINDLE_CONFIG", os.path.join(REPO_ROOT, "config.yaml"))
 WEB_DIR = os.path.join(REPO_ROOT, "web")
+DATA_DIR = os.environ.get("KINDLE_DATA_DIR", os.path.join(REPO_ROOT, "data"))
+APPLE_REMINDERS_CACHE = os.environ.get(
+    "KINDLE_APPLE_REMINDERS_CACHE", os.path.join(DATA_DIR, "apple_reminders.json"))
 
 # 推送 agent 脚本(被监控机 curl 下载):白名单路径,纯文本下发
 AGENT_FILES = {
@@ -56,6 +63,93 @@ CURRENT = {"style": None}
 page_state = {"i": 0, "last": 0.0}
 
 SOURCES = (weather, ccusage_cli, homeassistant, metrics, mstodo)
+CONFIG_SAVE_SYNC_SOURCES = (weather,)
+
+
+def _atomic_json_write(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
+def _apple_payload(data):
+    reminders = data.get("reminders", [])
+    if not isinstance(reminders, list):
+        reminders = []
+    return {
+        "updated_at": data.get("updated_at") or datetime.now(timezone.utc).isoformat(),
+        "reminders": reminders,
+    }
+
+
+def _load_apple_reminders_cache():
+    """服务重启后回放上次 Apple 提醒,避免等下一轮 launchd 推送前首页空掉。"""
+    try:
+        with open(APPLE_REMINDERS_CACHE, encoding="utf-8") as f:
+            payload = json.load(f) or {}
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        print(f"[apple-sync] 读取本地缓存失败:{e}")
+        return
+    reminders = payload.get("reminders") or []
+    if not isinstance(reminders, list):
+        return
+    with cache_lock:
+        cache["reminders"] = reminders
+        cache["apple_updated"] = payload.get("updated_at")
+    print(f"[apple-sync] 已加载本地缓存 {len(reminders)} 条")
+
+
+def _is_local_host(host):
+    host = (host or "").strip().lower().strip("[]")
+    return host in {"localhost", "0.0.0.0", "::", "::1"} or host.startswith("127.")
+
+
+def _valid_lan_ip(ip):
+    return bool(ip and not ip.startswith(("127.", "169.254.")) and ip != "0.0.0.0")
+
+
+def _lan_ips():
+    """尽力找本机可被局域网访问的 IPv4;第一个优先用于生成远程 agent 命令。"""
+    ips = []
+
+    def add(ip):
+        if _valid_lan_ip(ip) and ip not in ips:
+            ips.append(ip)
+
+    for target in ("8.8.8.8", "1.1.1.1"):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((target, 80))
+            add(s.getsockname()[0])
+            s.close()
+            break
+        except Exception:
+            try:
+                s.close()
+            except Exception:
+                pass
+
+    try:
+        for ip in socket.gethostbyname_ex(socket.gethostname())[2]:
+            add(ip)
+    except Exception:
+        pass
+
+    for cmd in (("ip", "-4", "-o", "addr", "show", "scope", "global"), ("ifconfig",)):
+        try:
+            out = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL, timeout=2)
+        except Exception:
+            continue
+        for ip in re.findall(r"\binet\s+(\d+\.\d+\.\d+\.\d+)", out):
+            add(ip)
+    return ips
+
+
+_load_apple_reminders_cache()
 
 
 def _tz(cfg):
@@ -74,9 +168,34 @@ def _merge(frag):
     with cache_lock:
         for k, v in frag.items():
             if k == "devices_metrics":
+                # 只更新本轮成功项;单台临时失败保留上一帧(不删)。改名/删除的旧指标由
+                # _prune_pull_device_cache(配置保存时)剪——别在这无脑删非 push 项,否则 A 成功 B 失败时 B 凭空消失。
                 cache.setdefault("devices_metrics", {}).update(v)
             else:
                 cache[k] = v
+
+
+def _prune_pull_device_cache(cfg):
+    """配置保存后剪掉已改名/已删除的本机或 SSH 指标;push 设备继续保留供发现区使用。"""
+    machines = ((cfg or {}).get("devices", {}) or {}).get("machines", []) or []
+    keep = {
+        (m.get("id") or "").strip() or (m.get("name") or "").strip()
+        for m in machines
+        if (m.get("mode") or "local") != "push"
+    }
+    keep = {x for x in keep if x}
+    with cache_lock:
+        cur = cache.get("devices_metrics") or {}
+        for key, val in list(cur.items()):
+            if not val.get("updated_at") and key not in keep:
+                cur.pop(key, None)
+
+
+def collect_source(src, cfg):
+    try:
+        _merge(src.collect(cfg))
+    except Exception as e:
+        print(f"[collect] {src.__name__}: {e}")
 
 
 def render_all(cfg):
@@ -97,8 +216,9 @@ def render_all(cfg):
         except Exception as e:
             print(f"[render] {pk}: {e}")
     if not new:
-        pipeline.kill_stale_chrome()
-        print("[render] 全部失败,已杀僵尸,下轮恢复")
+        if pages:        # 有启用页却全失败=真僵尸,才清理;无启用页(还没配数据源)不算失败,别瞎杀
+            pipeline.kill_stale_chrome()
+            print("[render] 全部失败,已杀僵尸,下轮恢复")
         return
     with RENDER_LOCK:
         for pk in new:
@@ -121,10 +241,7 @@ def source_loop(src):
     section, field, default = SOURCE_INTERVAL.get(src.__name__.rsplit(".", 1)[-1], RENDER_INTERVAL)
     while True:
         cfg = cm.get()
-        try:
-            _merge(src.collect(cfg))
-        except Exception as e:
-            print(f"[collect] {src.__name__}: {e}")
+        collect_source(src, cfg)
         time.sleep(_interval(cfg, section, field, default))
 
 
@@ -141,15 +258,79 @@ def render_loop():
         time.sleep(_interval(cfg, *RENDER_INTERVAL))
 
 
+def _ensure_access_token():
+    """首次启动若没令牌则生成一个,写进 config 并打印带令牌的设置页链接。
+    令牌保护设置/配置接口(见 _auth 中间件);Kindle 拉图、设备上报不受影响。"""
+    if (cm.get().get("server", {}) or {}).get("access_token"):
+        return
+    import secrets
+    tok = secrets.token_urlsafe(16)
+    cm.force_set("server", "access_token", tok)   # 绕过全量校验,别被 config 别处的错误挡掉令牌生成
+    port = (cm.get().get("server", {}) or {}).get("port", 8585)
+    print("[auth] 已生成设置页访问令牌(只此一份,请记下)。用此链接打开设置页:")
+    print(f"       http://<本机IP>:{port}/setup?token={tok}")
+
+
+def _log_rotate_loop():
+    """日志看门狗:每小时把 data/*.log 超 5MB 的截断到只保留最近约 1MB,
+    防 launchd 重定向的 service/menubar/codex-quota/reminders 日志长期跑爆盘。"""
+    import glob
+    MAX, KEEP = 5 * 1024 * 1024, 1 * 1024 * 1024
+    while True:
+        try:
+            for f in glob.glob(os.path.join(DATA_DIR, "*.log")):
+                try:
+                    if os.path.getsize(f) > MAX:
+                        with open(f, "rb") as fp:
+                            fp.seek(-KEEP, os.SEEK_END)
+                            tail = fp.read()
+                        with open(f, "wb") as fp:
+                            fp.write("...(日志已轮转,仅保留最近部分)...\n".encode() + tail)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        time.sleep(3600)
+
+
 @asynccontextmanager
 async def lifespan(_app):
+    _ensure_access_token()
     for src in SOURCES:
         threading.Thread(target=source_loop, args=(src,), daemon=True).start()
     threading.Thread(target=render_loop, daemon=True).start()
+    threading.Thread(target=_log_rotate_loop, daemon=True).start()
     yield
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+# ---------- 访问鉴权:令牌保护设置/配置接口;Kindle 拉图/设备上报/health 豁免 ----------
+from fastapi import Request  # noqa: E402
+
+# 豁免前缀:Kindle 只拉 frame.png / page/*;agent 下发、health、setup 空壳页都放行
+_AUTH_EXEMPT_PREFIXES = ("/kindle/frame.png", "/kindle/page/", "/agent/", "/health", "/setup")
+# 豁免精确路径:设备主动上报的接口(push 进来,Kindle/agent 调,带不了令牌)
+_AUTH_EXEMPT_EXACT = {"/", "/api/device-metrics", "/api/apple-sync",
+                      "/api/rate-limits", "/api/kindle-status"}
+
+
+@app.middleware("http")
+async def _auth(request: Request, call_next):
+    token = (cm.get().get("server", {}) or {}).get("access_token") or ""
+    if token:  # 设了令牌才校验;空=放行(向后兼容,首次启动会自动生成)
+        path = request.url.path
+        exempt = path in _AUTH_EXEMPT_EXACT or any(path.startswith(p) for p in _AUTH_EXEMPT_PREFIXES)
+        if not exempt:
+            given = (request.query_params.get("token")
+                     or request.headers.get("X-Access-Token")
+                     or request.cookies.get("kd_token") or "")
+            if given != token:
+                return JSONResponse(
+                    {"ok": False, "error": "需要访问令牌:请用 install 打印的 /setup?token=... 链接打开设置页。"},
+                    status_code=401)
+    return await call_next(request)
 
 
 # ---------- Kindle 取图 ----------
@@ -168,7 +349,9 @@ def kindle_frame():
         order = list(RENDER_ORDER)
         if order:
             now_ts = time.time()
-            if now_ts - page_state["last"] >= interval:
+            if page_state["last"] == 0.0:
+                page_state["last"] = now_ts          # 首次:停在第 0 页(首页),不立即跳页
+            elif now_ts - page_state["last"] >= interval:
                 page_state["i"] = (page_state["i"] + 1) % len(order)
                 page_state["last"] = now_ts
             png = RENDERED.get(order[page_state["i"] % len(order)])
@@ -221,15 +404,23 @@ async def device_metrics(data: dict = Body(...)):
     m["hostname"] = data.get("hostname") or key
     m["updated_at"] = time.time()
     with cache_lock:
-        cache.setdefault("devices_metrics", {})[key] = m
+        dm = cache.setdefault("devices_metrics", {})
+        if key not in dm and len(dm) >= 64:   # 防(无鉴权上报口被)恶意/异常 push 大量不同 id 撑爆内存
+            return JSONResponse({"status": "rejected", "error": "device count limit"}, status_code=429)
+        dm[key] = m
     return {"status": "ok", "key": key}
 
 
 @app.post("/api/apple-sync")
 async def apple_sync(data: dict = Body(...)):
+    payload = _apple_payload(data)
     with cache_lock:
-        cache["reminders"] = data.get("reminders", [])
-        cache["apple_updated"] = data.get("updated_at")
+        cache["reminders"] = payload["reminders"]
+        cache["apple_updated"] = payload["updated_at"]
+    try:
+        _atomic_json_write(APPLE_REMINDERS_CACHE, payload)
+    except Exception as e:
+        print(f"[apple-sync] 写本地缓存失败:{e}")
     return {"status": "ok"}
 
 
@@ -255,7 +446,8 @@ async def kindle_status(data: dict = Body(...)):
 # ---------- 设置网页 API ----------
 @app.get("/api/schema")
 def api_schema():
-    return JSONResponse(schema.to_json())
+    lang = (cm.get().get("server", {}) or {}).get("language", "zh")
+    return JSONResponse(schema.to_json(lang))
 
 
 @app.get("/api/config")
@@ -268,6 +460,10 @@ async def api_save_config(data: dict = Body(...)):
     errors = cm.save(data.get("config") or data)
     if errors:
         return JSONResponse({"ok": False, "errors": errors}, status_code=400)
+    cfg = cm.get()
+    _prune_pull_device_cache(cfg)
+    for src in CONFIG_SAVE_SYNC_SOURCES:
+        collect_source(src, cfg)
     return {"ok": True, "status": cm.status()}
 
 
@@ -322,6 +518,46 @@ def api_ha_entities(q: str = "", domain: str = ""):
     except Exception as e:
         return JSONResponse({"ok": False, "error": f"读取实体失败:{e}"}, status_code=502)
     return {"ok": True, **result}
+
+
+@app.get("/api/printers")
+def api_printers():
+    """扫描 HA 中可作为 3D 打印机页数据源的打印机。"""
+    ha = cm.get().get("home_assistant", {})
+    url = (ha.get("url") or "").strip()
+    token = (ha.get("token") or "").strip()
+    if not (url and token):
+        return JSONResponse(
+            {"ok": False, "error": "请先填写并【保存】Home Assistant 的地址和令牌,再扫描打印机。"},
+            status_code=400)
+    try:
+        result = homeassistant.list_printers(url, token)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": f"扫描打印机失败:{e}"}, status_code=502)
+    return {"ok": True, **result}
+
+
+@app.get("/api/server-url")
+def api_server_url(request: Request):
+    """给设置页生成远程 agent 命令:localhost 打开设置页时,自动换成局域网地址。"""
+    cfg = cm.get()
+    origin = str(request.base_url).rstrip("/")
+    host = request.url.hostname or ""
+    port = request.url.port or int(cfg.get("server", {}).get("port", 8585))
+    scheme = request.url.scheme or "http"
+    lan_urls = [f"{scheme}://{ip}:{port}" for ip in _lan_ips()]
+    use_lan = _is_local_host(host) and lan_urls
+    recommended = lan_urls[0] if use_lan else origin
+    candidates = []
+    for url in [recommended, origin] + lan_urls:
+        if url and url not in candidates:
+            candidates.append(url)
+    return {
+        "origin": origin,
+        "recommended": recommended,
+        "candidates": candidates,
+        "is_loopback": _is_local_host(host),
+    }
 
 
 # ---------- Microsoft To Do 登录(设备码流程) ----------

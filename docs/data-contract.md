@@ -66,8 +66,8 @@
 | `cx_cost` / `cx_tok` | str | `$4.20` / `0.6M` | Codex 今日花费 / token |
 | `tok_7d` / `tok_30d` / `tok_all` | str | `8M` / `30M` / `120M` | token 累计 |
 | `chart` | list | `[{day:"27", cc_h:60, cx_h:30, val:"1.2M"}]` | 近 7 天柱状图;`cc_h`/`cx_h` 是 0-100 的高度% |
-| `custom_total` | str | `¥12.34` | 自定义倍率折算的今日实际花费,可能空 |
-| `custom_name` | str | | 中转站/供应商名 |
+| `custom_total` | str | `¥12.34` | 今日官方价 × 倍率(`ai_usage.claude_rate`/`codex_rate` 各一档)。两档都=1.0 时为空(不显示) |
+| `custom_name` | str | | 供应商名,当前恒空 → 模板回落显示「自定义」 |
 
 ## `device` —— 设备监控
 

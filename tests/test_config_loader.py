@@ -90,6 +90,21 @@ def test_device_list_secret_preserved():
     assert cm.get()["devices"]["machines"][0]["ssh_password"] == "pw"
 
 
+def test_device_secret_no_crosstalk_after_delete():
+    """删/重排设备后,SSH 密码按 name 匹配回填,绝不串到另一台(High bug 复现)。"""
+    p = _tmp()
+    cm = loader.ConfigManager(p)
+    cm.save({"devices": {"machines": [
+        {"name": "A", "mode": "ssh", "host": "10.0.0.1", "ssh_user": "u", "ssh_password": "pwA"},
+        {"name": "B", "mode": "ssh", "host": "10.0.0.2", "ssh_user": "u", "ssh_password": "pwB"}]}})
+    # 删掉 A、只留 B,B 的密码提交掩码(用户没改)。旧逻辑按下标会把 A 的 pwA 串给 B。
+    cm.save({"devices": {"machines": [
+        {"name": "B", "mode": "ssh", "host": "10.0.0.2", "ssh_user": "u", "ssh_password": loader.SECRET_MASK}]}})
+    m = cm.get()["devices"]["machines"]
+    assert len(m) == 1 and m[0]["name"] == "B"
+    assert m[0]["ssh_password"] == "pwB"      # 按 name 匹配,不串成 pwA
+
+
 def test_saved_file_is_valid_yaml_no_tmp():
     p = _tmp()
     cm = loader.ConfigManager(p)
@@ -97,6 +112,25 @@ def test_saved_file_is_valid_yaml_no_tmp():
     with open(p, encoding="utf-8") as f:
         yaml.safe_load(f)                   # 合法 yaml
     assert not os.path.exists(p + ".tmp")   # 无残留临时文件
+
+
+def test_force_set_bypasses_validation():
+    """access_token 等必须能生成:即使 config 别处有校验错(HA 填了 url 缺 token),force_set 也照写并落盘。"""
+    p = _tmp()
+    cm = loader.ConfigManager(p)
+    cm.get()["home_assistant"] = {"url": "http://x:8123"}   # 制造校验错(缺 token),普通 save 会被挡
+    cm.force_set("server", "access_token", "TK")
+    assert cm.get()["server"]["access_token"] == "TK"
+    assert yaml.safe_load(open(p, encoding="utf-8"))["server"]["access_token"] == "TK"   # 已落盘
+
+
+def test_module_list_non_dict_survives_load():
+    """手改 config 把列表项写成非 dict(machines: ['bad'])不致启动崩,降级为空列表。"""
+    p = _tmp()
+    with open(p, "w", encoding="utf-8") as f:
+        yaml.safe_dump({"devices": {"machines": ["bad", 123]}}, f)
+    cm = loader.ConfigManager(p)                            # 不抛 AttributeError
+    assert cm.get()["devices"]["machines"] == []
 
 
 if __name__ == "__main__":

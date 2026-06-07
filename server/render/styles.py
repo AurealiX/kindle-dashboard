@@ -6,6 +6,7 @@
 风格目录默认在仓库根 styles/;可用 KINDLE_STYLES_DIR 覆盖(测试/自定义路径用)。
 """
 import os
+import json
 import random
 from datetime import date
 
@@ -76,12 +77,29 @@ def read_css(style: str, d: str = None) -> str:
         return ""
 
 
+def read_strings(style: str, d: str = None) -> dict:
+    """读 styles/<style>/strings.json(i18n 文案表)。结构 {"zh":{...},"en":{...}}。
+    缺文件/坏 JSON → 空 dict(诚实降级:模板 {{ t.x }} 渲染为空,不报错)。"""
+    path = os.path.join(d or styles_dir(), style, "strings.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, ValueError):
+        return {}
+
+
 def render_page(style: str, page_key: str, ctx: dict, d: str = None) -> str:
-    """渲染 styles/<style>/<page_key>.html。模板缺失抛 TemplateNotFound,由上层降级。"""
+    """渲染 styles/<style>/<page_key>.html。模板缺失抛 TemplateNotFound,由上层降级。
+    按 ctx['lang'] 注入该风格的文案表 t(英文缺条目回退中文)。"""
     d = d or styles_dir()
     tpl = _env(d).get_template(f"{style}/{page_key}.html")
     full = dict(ctx)
     full["css"] = read_css(style, d)
+    lang = (ctx.get("lang") or "zh")
+    strings = read_strings(style, d)
+    zh = strings.get("zh") or {}
+    cur = strings.get(lang) or {}
+    full["t"] = {**zh, **cur} if lang != "zh" else zh   # en 缺条目回退中文
     return tpl.render(**full)
 
 

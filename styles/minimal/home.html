@@ -25,31 +25,31 @@
 .cal td.we .d{color:var(--ink4);}
 .cal td.hol .l{color:var(--ink2);font-weight:600;}
 </style></head><body>
-<div class="head"><div class="ttl">首页</div><div class="meta">{{ home.weekday }} · 农历{{ home.lunar }} · {{ home.ganzhi }}{% if home.term %} · {{ home.term }}{% endif %}</div></div>
+<div class="head"><div class="ttl">{{ t.home_title }}</div><div class="meta">{{ home.weekday }}{% if lang=='zh' %} · {{ t.home_lunar }}{{ home.lunar }} · {{ home.ganzhi }}{% if home.term %} · {{ home.term }}{% endif %}{% endif %}</div></div>
 <div class="main">
   <div class="col col-r">
-    <div class="lab">天气</div>
+    <div class="lab">{{ t.home_weather }}</div>
     <div class="n-mega tnum">{{ home.weather.temp }}°</div>
     <div class="wx-cond">{{ home.weather.cond }}</div>
-    <div class="wx-meta"><span>体感 <b>{{ home.weather.feels }}°</b></span><span>湿度 <b>{{ home.weather.humidity }}%</b></span><span><b>{{ home.weather.wind }}</b></span></div>
-    <div class="wx-range"><span>今 {{ home.weather.today_range }}</span><span>明 {{ home.weather.tmr_range }} <span class="lo">{{ home.weather.tmr_cond }}</span></span></div>
+    <div class="wx-meta"><span>{{ t.home_feels }} <b>{{ home.weather.feels }}°</b></span><span>{{ t.home_humidity }} <b>{{ home.weather.humidity }}%</b></span><span><b>{{ home.weather.wind }}</b></span></div>
+    <div class="wx-range"><span>{{ t.home_today }} {{ home.weather.today_range }}</span><span>{{ t.home_tomorrow }} {{ home.weather.tmr_range }} <span class="lo">{{ home.weather.tmr_cond }}</span></span></div>
     <div class="hr"></div>
-    <div class="lab">提醒事项 <span class="aux">{{ home.reminders.total }} 项待办</span></div>
+    <div class="lab">{{ t.home_reminders }} <span class="aux">{{ home.reminders.total }} {{ t.home_reminders_count }}</span></div>
     <div class="todo">
-    {% if home.reminders.overdue %}<div class="grp">已过期</div>{% for r in home.reminders.overdue[:2] %}<div class="ti"><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
-    {% if home.reminders.today %}<div class="grp">今天</div>{% for r in home.reminders.today[:2] %}<div class="ti"><span class="tx">{{ r.title }}</span></div>{% endfor %}{% endif %}
-    {% if home.reminders.upcoming %}<div class="grp">近期</div>{% for r in home.reminders.upcoming[:3] %}<div class="ti"><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
-    {% if not home.reminders.overdue and not home.reminders.today and not home.reminders.upcoming %}<div class="ti"><span class="tx" style="color:var(--ink3);">暂无近期提醒</span></div>{% endif %}
+    {% if home.reminders.overdue %}<div class="grp">{{ t.home_grp_overdue }}</div>{% for r in home.reminders.overdue[:2] %}<div class="ti"><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+    {% if home.reminders.today %}<div class="grp">{{ t.home_grp_today }}</div>{% for r in home.reminders.today[:2] %}<div class="ti"><span class="tx">{{ r.title }}</span></div>{% endfor %}{% endif %}
+    {% if home.reminders.upcoming %}<div class="grp">{{ t.home_grp_upcoming }}</div>{% for r in home.reminders.upcoming[:3] %}<div class="ti"><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+    {% if not home.reminders.overdue and not home.reminders.today and not home.reminders.upcoming %}<div class="ti"><span class="tx" style="color:var(--ink3);">{{ t.home_no_reminders }}</span></div>{% endif %}
     </div>
   </div>
   <div class="col col-l">
     <div class="lab">{{ home.year }} / {{ "%02d"|format(home.month) }}</div>
     <table class="cal">
-      <tr><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th></tr>
+      <tr><th>{{ t.cal_mon }}</th><th>{{ t.cal_tue }}</th><th>{{ t.cal_wed }}</th><th>{{ t.cal_thu }}</th><th>{{ t.cal_fri }}</th><th>{{ t.cal_sat }}</th><th>{{ t.cal_sun }}</th></tr>
       {% for week in home.calendar %}<tr>{% for c in week %}{% if c %}<td class="{% if c.today %}today{% endif %} {% if c.weekend %}we{% endif %} {% if c.holiday %}hol{% endif %}"><div class="d tnum">{{ c.d }}</div><div class="l">{{ c.l }}</div></td>{% else %}<td></td>{% endif %}{% endfor %}</tr>
       {% endfor %}
     </table>
   </div>
 </div>
-<div class="foot"><span>更新于 <span class="tnum">{{ time_hm }}</span></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<span class="tnum">{{ battery.level }}%</span></span><span>首页 · 01 / 05</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <span class="tnum">{{ time_hm }}</span></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<span class="tnum">{{ battery.level }}%</span></span><span>{{ t.foot_page_home }} · 01 / 05</span></div>
 </body></html>

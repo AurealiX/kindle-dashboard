@@ -17,8 +17,10 @@ ha-预览-真实数据.png
 
 # 运行时数据(渲染产物、缓存、上报数据)
 data/
-installers/macos/quota/quota.conf   # enable_quota.sh 生成的本机上报地址/节流,运行时产物
-previews/        # 风格预览图(本地查看用,preview_style.py 产物归档)
+# enable_quota.sh 生成的本机上报地址/节流,运行时产物
+installers/macos/quota/quota.conf
+# 风格预览图(本地查看用,preview_style.py 产物归档;.gitignore 不支持行内注释,故独立成行)
+previews/
 *.png
 !docs/**/*.png
 !styles/**/preview/*.png
@@ -35,12 +37,16 @@ venv/
 # Node
 node_modules/
 npm-debug.log*
-.node/                       # install.sh 下载的本地 Node 运行时(几十 MB,运行时产物)
+# install.sh 下载的本地 Node 运行时(几十 MB,运行时产物)
+.node/
 
 # 系统垃圾
 .DS_Store
 Thumbs.db
 *.swp
 
-# 内部开发文档(含真实调试 IP / 内部决策,不进公开仓库;本地保留供 AI 协作)
+# 内部开发文档(含真实调试 IP / 内部决策 / 本地路径,不进公开仓库;本地保留供 AI 协作)
 CLAUDE_TASK_QUEUE.md
+CLAUDE.md
+docs/migration-map.md
+docs/i18n-spec.md

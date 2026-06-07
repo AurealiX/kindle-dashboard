@@ -98,10 +98,11 @@ class RenderConfig:
 
 
 def kill_stale_chrome() -> None:
-    """杀掉残留 headless chromium,防僵尸堆积导致渲染全失败。"""
+    """只杀本服务渲染开的 headless chrome —— 它们命令行带 kdash-render 临时目录标记。
+    不再用 `pkill chrome.*headless` 一刀切(会误杀用户机器上别的 headless chrome);
+    按标记杀,只动自己的渲染进程,绝不碰本服务进程或他人进程。"""
     try:
-        subprocess.run(["pkill", "-f", "chromium.*headless"], capture_output=True, timeout=5)
-        subprocess.run(["pkill", "-f", "chrome.*headless"], capture_output=True, timeout=5)
+        subprocess.run(["pkill", "-f", "kdash-render"], capture_output=True, timeout=5)
     except Exception:
         pass
 
@@ -110,7 +111,8 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
     chrome = rc.chrome_bin or find_chrome()
     if not chrome:
         raise RuntimeError("未找到 Chrome/Chromium,请装 chromium 或设置 CHROME_BIN")
-    with tempfile.TemporaryDirectory() as td:
+    # 临时目录带 kdash-render 前缀:chrome 命令行会含此路径,kill_stale_chrome 据此只杀自己的渲染进程。
+    with tempfile.TemporaryDirectory(prefix="kdash-render-") as td:
         html_path = os.path.join(td, "page.html")
         png_path = os.path.join(td, "out.png")
         with open(html_path, "w", encoding="utf-8") as f:
@@ -131,6 +133,7 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
                 f"--force-device-scale-factor={scale:.4f}",
                 f"--window-size={bw},{bh}",
                 "--default-background-color=FFFFFFFF",
+                f"--user-data-dir={td}/ud",
                 f"--screenshot={png_path}", f"file://{html_path}",
             ], capture_output=True, timeout=rc.timeout)
         except subprocess.TimeoutExpired:

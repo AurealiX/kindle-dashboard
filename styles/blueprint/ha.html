@@ -64,7 +64,7 @@
 {%- set cards = ha.cards if ha else [] -%}
 {%- set on_n = cards|selectattr('on')|list|length -%}
 <div class="sheet"><div class="drawing">
-  <div class="mast"><div><div class="pj">KINDLE-DASH · HOME-ASSISTANT</div><div class="ti">家庭概览 / 智能家居</div></div><div class="meta tnum">{{ now }}</div></div>
+  <div class="mast"><div><div class="pj">KINDLE-DASH · HOME-ASSISTANT</div><div class="ti">{{ t.ha_title }}</div></div><div class="meta tnum">{{ now }}</div></div>
 {% if cards %}
 {%- set n = cards|length -%}
 {%- set ce = (n ** 0.5)|round(0, 'ceil')|int -%}
@@ -80,7 +80,7 @@
   {% endfor %}
   </div></div>
 {% else %}
-  <div class="main"><div class="haempty"><div class="big">智能家居</div><div>在设置页添加 Home Assistant 实体</div></div></div>
+  <div class="main"><div class="haempty"><div class="big">{{ t.ha_smart_home }}</div><div>{{ t.ha_empty_hint }}</div></div></div>
 {% endif %}
   <div class="titleblock">
     <div class="cell grow"><div class="l">PROJECT</div><div class="v">SMART HOME</div></div>

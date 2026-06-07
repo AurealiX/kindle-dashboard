@@ -19,17 +19,17 @@
 .legend{font-size:11px;color:var(--ink2);font-weight:600;display:flex;gap:16px;margin-top:9px;}
 .legend i{display:inline-block;width:14px;height:9px;margin-right:5px;vertical-align:middle;border-radius:2px;}
 </style></head><body>
-<div class="head"><div class="ttl">AI 用量</div><div class="meta tnum">{{ now }}</div></div>
+<div class="head"><div class="ttl">{{ t.ai_title }}</div><div class="meta tnum">{{ now }}</div></div>
 <div class="bento">
   <div class="card c-cc">
-    <div class="lab">Claude 配额</div>
-    <div class="barrow"><div class="kv"><span class="k">5 小时</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.five_pct }}%"></i></div></div>
-    <div class="barrow"><div class="kv"><span class="k">本周</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.week_pct }}%"></i></div></div>
+    <div class="lab">{{ t.ai_claude_quota }}</div>
+    <div class="barrow"><div class="kv"><span class="k">{{ t.ai_5h }}</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.five_pct }}%"></i></div></div>
+    <div class="barrow"><div class="kv"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.week_pct }}%"></i></div></div>
   </div>
   <div class="card c-cx">
-    <div class="lab">Codex 配额</div>
-    <div class="barrow"><div class="kv"><span class="k">5 小时</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
-    <div class="barrow"><div class="kv"><span class="k">本周</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+    <div class="lab">{{ t.ai_codex_quota }}</div>
+    <div class="barrow"><div class="kv"><span class="k">{{ t.ai_5h }}</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
+    <div class="barrow"><div class="kv"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
   </div>
   <div class="card hero c-cost">
     <div class="cost-row"><span class="l">今日官方</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>

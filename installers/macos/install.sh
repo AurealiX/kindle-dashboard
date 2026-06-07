@@ -64,10 +64,10 @@ mkdir -p "$REPO/data"
 
 PORT=$("$PY" -c "import yaml;print((yaml.safe_load(open('$REPO/config.yaml')) or {}).get('server',{}).get('port',8585))" 2>/dev/null || echo 8585)
 
-# 4b. AI 用量统计(可选)—— 询问 + 自动装 Node + ccusage(Node 不再问用户)
+# 4b. AI 用量统计(可选)—— 询问 + 自动检测/安装 Node + ccusage(Node 不再问用户)
 echo
 echo "【可选】AI 用量统计:读本机 Claude Code / Codex 的本地日志,在看板上显示每日 token 与花费。"
-printf "是否启用?(需要会自动装 Node + ccusage,无需你手动)[y/N] "
+printf "是否启用?(会自动检测/安装 Node + ccusage,无需你手动)[y/N] "
 read -r ai_ans
 case "$ai_ans" in
   [Yy]*)
@@ -88,8 +88,26 @@ case "$ai_ans" in
     if [ -n "$NODE_BIN" ] && [ -x "$NODE_BIN" ]; then
       echo "  ✓ Node: $($NODE_BIN --version 2>&1)"
       NDIR="$(dirname "$NODE_BIN")"
-      echo "  安装 ccusage..."
-      PATH="$NDIR:$PATH" "$NDIR/npm" install -g ccusage >/dev/null 2>&1 && echo "  ✓ ccusage 已装" || echo "  ⚠ ccusage 安装失败(可稍后 npm i -g ccusage)"
+      CCUSAGE_PATH=$(PATH="$NDIR:$REPO/.node/bin:/usr/local/bin:/opt/homebrew/bin:$HOME/.npm-global/bin:$PATH" command -v ccusage 2>/dev/null || true)
+      if [ -n "$CCUSAGE_PATH" ]; then
+        echo "  ✓ ccusage: $($CCUSAGE_PATH --version 2>&1) ($CCUSAGE_PATH)"
+      else
+        NPM_BIN="$NDIR/npm"
+        [ -x "$NPM_BIN" ] || NPM_BIN=$(PATH="$NDIR:$PATH" command -v npm 2>/dev/null || true)
+        if [ -n "$NPM_BIN" ] && [ -x "$NPM_BIN" ]; then
+          CCUSAGE_LOG="$REPO/data/ccusage-install.log"
+          echo "  未检测到 ccusage,开始安装..."
+          if PATH="$NDIR:$PATH" "$NPM_BIN" install -g ccusage >"$CCUSAGE_LOG" 2>&1; then
+            CCUSAGE_PATH=$(PATH="$NDIR:$REPO/.node/bin:/usr/local/bin:/opt/homebrew/bin:$HOME/.npm-global/bin:$PATH" command -v ccusage 2>/dev/null || true)
+            echo "  ✓ ccusage 已装${CCUSAGE_PATH:+:$CCUSAGE_PATH}"
+          else
+            echo "  ⚠ ccusage 安装失败(可稍后 npm i -g ccusage)"
+            echo "    日志:$CCUSAGE_LOG"
+          fi
+        else
+          echo "  ⚠ 未找到 npm,无法自动安装 ccusage(可稍后安装 Node/npm 后重跑)"
+        fi
+      fi
       "$PY" - <<PYEOF
 import yaml
 p = "$REPO/config.yaml"
@@ -152,7 +170,7 @@ cat > "$PLIST" <<EOF
   <key>EnvironmentVariables</key>
   <dict>
     <key>KINDLE_CONFIG</key><string>$REPO/config.yaml</string>
-    <key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    <key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
   </dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -227,7 +245,39 @@ esac
 echo "==> 安装菜单栏程序..."
 MB_LABEL="com.kindle-dashboard.menubar"
 MB_PLIST="$HOME/Library/LaunchAgents/$MB_LABEL.plist"
+MB_APP="$REPO/data/Kindle Dashboard Menu.app"
+MB_EXEC="$MB_APP/Contents/MacOS/KindleDashboardMenu"
+# 兜底:老环境的 venv 可能没装 rumps(早期 requirements 没它)→ 自动补,免得菜单栏静默缺失
+"$PY" -c "import rumps" 2>/dev/null || { echo "  补装菜单栏依赖 rumps..."; "$PIP" install -q rumps 2>/dev/null; }
 if "$PY" -c "import rumps" 2>/dev/null; then
+  rm -rf "$MB_APP"
+  mkdir -p "$MB_APP/Contents/MacOS"
+  cat > "$MB_APP/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+  <key>CFBundleDisplayName</key><string>Kindle Dashboard</string>
+  <key>CFBundleExecutable</key><string>KindleDashboardMenu</string>
+  <key>CFBundleIdentifier</key><string>$MB_LABEL</string>
+  <key>CFBundleName</key><string>Kindle Dashboard</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSUIElement</key><true/>
+  <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+EOF
+  cat > "$MB_EXEC" <<EOF
+#!/bin/bash
+cd "$REPO" || exit 1
+export KINDLE_CONFIG="$REPO/config.yaml"
+export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
+exec "$PY" -m server.menubar
+EOF
+  chmod +x "$MB_EXEC"
   cat > "$MB_PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -235,16 +285,17 @@ if "$PY" -c "import rumps" 2>/dev/null; then
 <dict>
   <key>Label</key><string>$MB_LABEL</string>
   <key>ProgramArguments</key>
-  <array><string>$PY</string><string>-m</string><string>server.menubar</string></array>
+  <array><string>$MB_EXEC</string></array>
   <key>WorkingDirectory</key><string>$REPO</string>
   <key>EnvironmentVariables</key><dict><key>KINDLE_CONFIG</key><string>$REPO/config.yaml</string></dict>
   <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>$REPO/data/menubar.log</string>
   <key>StandardErrorPath</key><string>$REPO/data/menubar.log</string>
 </dict>
 </plist>
 EOF
   launchctl unload "$MB_PLIST" 2>/dev/null || true
-  if launchctl load "$MB_PLIST" 2>/dev/null; then echo "✓ 菜单栏程序已启动(看屏幕顶部状态栏)"; else echo "⚠ 菜单栏启动失败(不影响看板服务)"; fi
+  if launchctl load "$MB_PLIST" 2>/dev/null; then echo "✓ 菜单栏程序已启动(顶部状态栏显示 Kindle 小图标)"; else echo "⚠ 菜单栏启动失败(不影响看板服务)"; fi
 else
   echo "⚠ 未装 rumps,跳过菜单栏(不影响看板服务;可 $PIP install rumps 后重跑)"
 fi
@@ -252,14 +303,18 @@ fi
 # 8. 成功,打印地址
 get_ip(){ for i in en0 en1 en2 en3 en4; do ip=$(ipconfig getifaddr $i 2>/dev/null); [ -n "$ip" ] && { echo "$ip"; return; }; done; }
 IP=$(get_ip)
+# 读访问令牌(服务首次启动自动生成,写进 config.yaml);设置页链接带上它才能打开
+TOKEN=$("$PY" -c "import yaml;print((yaml.safe_load(open('$REPO/config.yaml')) or {}).get('server',{}).get('access_token','') or '')" 2>/dev/null || echo "")
+Q=""; [ -n "$TOKEN" ] && Q="?token=$TOKEN"
 echo "✓ 服务已启动并自检通过(开机自启已设置)"
 echo
 echo "================================================================"
-echo "  ✅ 安装完成!打开设置页配置你的看板:"
-echo "      http://localhost:$PORT/setup"
+echo "  ✅ 安装完成!打开设置页配置你的看板(链接含访问令牌,请收藏):"
+echo "      http://localhost:$PORT/setup$Q"
+[ -n "$TOKEN" ] && echo "  🔑 访问令牌:$TOKEN(同 WiFi 别人没它进不了设置页;Kindle 拉图不受影响)"
 if [ -n "$IP" ]; then
   echo "  局域网访问 / Kindle 拉图地址用这个 IP($IP):"
-  echo "      设置页:        http://$IP:$PORT/setup"
+  echo "      设置页:        http://$IP:$PORT/setup$Q"
   echo "      Kindle 拉图地址:http://$IP:$PORT/kindle/frame.png"
 else
   echo "  (未自动取到局域网 IP,配 Kindle 时用:系统设置→网络 里看本机 IP)"

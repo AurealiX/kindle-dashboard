@@ -32,6 +32,8 @@ class Field:
     options: Optional[list] = None  # type=enum 时的可选值 [(value, label), ...]
     item_fields: Optional[list] = None  # type=module_list 时,每项的子字段
     hidden: bool = False            # True=不在设置网页单独渲染输入框(由配套控件维护,如城市名由城市选择器写入)
+    label_en: str = ""              # i18n:英文标签;空=回退中文 label(见 to_json(lang))
+    help_en: str = ""               # i18n:英文说明;空=回退中文 help
 
 
 @dataclass
@@ -40,6 +42,8 @@ class Section:
     label: str                      # 模块标题
     help: str = ""
     fields: list = field(default_factory=list)
+    label_en: str = ""              # i18n:英文模块标题;空=回退中文
+    help_en: str = ""               # i18n:英文模块说明;空=回退中文
     # 该模块"算启用(用户有意图)"的条件:列出的字段全部非空才算启用。
     # 设计原则:enable_when 放"足以表达启用意图"的字段,**不要放需要单独报错提示的凭据**。
     #   - 模块有非凭据的意图字段(如 HA 的 url 地址)→ 用它;凭据(token)靠 required 校验缺失。
@@ -90,9 +94,15 @@ SCHEMA: list = [
     Section(
         key="server", label="服务",
         help="服务基础设置,一般用默认值即可。",
+        label_en="Server", help_en="Basic service settings; defaults are usually fine.",
         fields=[
-            Field("port", "端口", "int", 8585),
-            Field("timezone", "时区", "str", "Asia/Shanghai"),
+            Field("language", "界面语言 / Language", "enum", "zh",
+                  options=[("zh", "中文"), ("en", "English")],
+                  help="设置页、菜单栏、看板的语言。英文版看板会隐藏农历、节气、生肖、天干地支等中国元素。",
+                  label_en="Language", help_en="Language for the settings page, menu bar and dashboard. "
+                  "The English dashboard hides Chinese-calendar elements (lunar date, solar terms, zodiac)."),
+            Field("port", "端口", "int", 8585, label_en="Port"),
+            Field("timezone", "时区", "str", "Asia/Shanghai", label_en="Timezone"),
             Field("page_interval", "轮播间隔(秒)", "int", 20,
                   help="Kindle 每隔多少秒切换到下一页。"),
             Field("kindle_model", "Kindle 机型", "enum", "base",
@@ -110,6 +120,10 @@ SCHEMA: list = [
             Field("render_grayscale", "灰度输出", "bool", True),
             Field("render_interval", "出图刷新间隔(秒)", "int", 30,
                   help="多久重渲染一次看板图(刷新时钟与已变数据)。与采集解耦,慢数据源不影响它。"),
+            Field("access_token", "设置页访问令牌", "str", "", secret=True,
+                  help="保护设置页/配置接口不被同 WiFi 其他人访问。安装/首次启动自动生成,"
+                       "用带令牌的链接打开设置页(install 会打印 :端口/setup?token=...)。"
+                       "Kindle 拉图、设备上报不受影响。留空=不鉴权(不推荐)。"),
         ],
     ),
 
@@ -170,14 +184,19 @@ SCHEMA: list = [
         enable_when=["enabled"],
         fields=[
             Field("enabled", "启用", "bool", False),
-            Field("custom_rate", "自定义价格倍率", "float", 1.0,
-                  help="官方价 × 倍率 = 实际花费(中转站对账用),默认 1.0。"),
+            Field("claude_rate", "Claude 价格倍率", "float", 1.0,
+                  help="Claude 官方价 × 此倍率 = 自定义花费(中转站对账用)。默认 1.0=按官方价。"),
+            Field("codex_rate", "Codex 价格倍率", "float", 1.0,
+                  help="Codex 官方价 × 此倍率 = 自定义花费。默认 1.0=按官方价。两档都为 1 时不显示自定义价。"),
             Field("interval", "采集间隔(秒)", "int", 300,
                   help="本机 ccusage 多久采一次。每次解析本机日志约 10 秒,建议 ≥300。"),
             Field("codex_quota_interval", "Codex 额度上报间隔(秒)", "int", 600,
                   help="Codex 5h/周额度上报间隔。launchd 定时器(非热重载):改后重跑 enable_quota.sh。"),
             Field("claude_quota_interval", "Claude 额度上报节流(秒)", "int", 300,
                   help="Claude 额度走 Claude Code statusLine 推送(push),此值为节流间隔(非热重载)。"),
+            Field("codex_proxy", "Codex 代理(可选)", "str", "",
+                  help="国内访问 chatgpt.com 调 Codex 额度多半需代理,如 http://127.0.0.1:7897;留空=直连。"
+                       "改后重跑 enable_quota.sh 生效。"),
         ],
     ),
 
@@ -201,8 +220,8 @@ SCHEMA: list = [
         enable_when=["enabled", "entity_prefix"],
         fields=[
             Field("enabled", "启用", "bool", False),
-            Field("entity_prefix", "实体前缀", "str", "",
-                  help="HA 中该打印机实体的公共前缀,如 a1_xxxx。"),
+            Field("entity_prefix", "选择打印机", "printer", "",
+                  help="从 Home Assistant 自动扫描可用打印机。高级用户仍可手填实体前缀。"),
         ],
     ),
 
@@ -266,12 +285,12 @@ SCHEMA: list = [
         help="启用哪些页、轮播顺序、用哪套风格。留空=按数据源自动决定。",
         fields=[
             Field("pages", "启用页面", "str_list", default=[],
-                  help="留空则按已配置的数据源自动启用。可选:home/ai/device/ha/printer。"),
+                  help="留空则按已配置的数据源自动启用。可选:首页、AI 用量、设备监控、智能家居、3D 打印机。"),
             Field("style_mode", "风格模式", "enum", "fixed",
                   options=[("fixed", "固定一套"), ("daily_random", "每日随机")]),
             Field("style", "风格", "str", "style_a"),
             Field("style_rotation", "随机池", "str_list", default=["style_a"],
-                  help="style_mode=每日随机 时,从这些风格里按日期选。"),
+                  help="每日随机时,从这些风格里按日期选。可填:经典仪表盘、卡片分区、蓝图线框、仪表盘、极简、报纸、终端。"),
         ],
     ),
 ]
@@ -335,13 +354,15 @@ def active_pages(config: dict) -> list:
     display.pages 非空 → 用它(但仍过滤掉数据源没配的页);
     为空 → 按已启用的数据源自动推导。"""
     enabled = enabled_modules(config)
+    ha_cfg = config.get("home_assistant", {}) or {}
+    ha_ready = _is_filled(ha_cfg.get("url")) and _is_filled(ha_cfg.get("token"))
     # 数据源模块 → 页面 的映射(server/home_assistant/display 不直接对应页)
     page_ready = {
         "home": enabled.get("weather") or enabled.get("reminders") or enabled.get("mstodo"),
         "ai": enabled.get("ai_usage"),
         "device": enabled.get("devices"),
-        "ha": enabled.get("ha_page"),
-        "printer": enabled.get("printer"),
+        "ha": enabled.get("ha_page") and ha_ready,      # 选了实体 + HA 地址/令牌都配好,才出 ha 页
+        "printer": enabled.get("printer") and ha_ready, # 打印机也经 HA,同理依赖 HA 有效
     }
     default_order = ["home", "ai", "device", "ha", "printer"]
     chosen = config.get("display", {}).get("pages") or []
@@ -368,11 +389,15 @@ def validate(config: dict) -> list:
                 errors.append(f"{sec.label}.{f.label} 类型应为 {f.type}")
             if f.required and enabled.get(sec.key) and not _is_filled(v):
                 errors.append(f"{sec.label}.{f.label} 必填")
+    # 天气 API Host 软校验:填了但明显不是纯域名(带协议/空格/非 ASCII)→ 阻止保存并提示
+    host = ((config.get("weather", {}) or {}).get("host") or "").strip()
+    if host and (("://" in host) or (" " in host) or any(ord(c) > 127 for c in host)):
+        errors.append("天气.API Host 格式有误:应是纯域名(如 xxx.re.qweatherapi.com),不要带 http:// 或空格")
     return errors
 
 
 def _check_type(v, t) -> bool:
-    if t in ("str", "enum", "city", "ha_entity"):
+    if t in ("str", "enum", "city", "ha_entity", "printer"):
         return isinstance(v, str)
     if t == "int":
         return isinstance(v, int) and not isinstance(v, bool)
@@ -385,6 +410,44 @@ def _check_type(v, t) -> bool:
     return True
 
 
-def to_json() -> list:
-    """给设置网页:schema 的可序列化表达(不含任何用户数据)。"""
-    return [asdict(s) for s in SCHEMA]
+# enum 选项标签的英文(按 value 翻;to_json(lang='en') 时替换 options[i][1])。
+# 不在此表的 value 回退中文标签。机型名(KINDLE_MODELS)保留原样(含分辨率,语言无关)。
+OPTION_LABELS_EN = {
+    "zh": "中文", "en": "English",
+    "qweather": "QWeather",
+    "local": "Local (read on host)", "push": "Push (agent on target)", "ssh": "Pull (SSH in)",
+    "auto": "Auto-detect", "linux": "Linux", "macos": "macOS", "windows": "Windows",
+    "fixed": "Fixed one", "daily_random": "Daily random",
+}
+
+
+def _opt_en(o):
+    """单个 enum option(list/tuple [value,label,...])→ 英文 label,其余元素保留。"""
+    o = list(o)
+    if o and o[0] in OPTION_LABELS_EN:
+        o[1] = OPTION_LABELS_EN[o[0]]
+    return o
+
+
+def to_json(lang: str = "zh") -> list:
+    """给设置网页:schema 的可序列化表达(不含任何用户数据)。
+    lang='en' 时把 label/help/options 换成英文(label_en/help_en 为空则回退中文)。
+    lang='zh'(默认)= 原样输出,保证中文行为像素级不变。"""
+    out = []
+    for s in SCHEMA:
+        sd = asdict(s)
+        if lang == "en":
+            sd["label"] = s.label_en or s.label
+            sd["help"] = s.help_en or s.help
+            for fd, f in zip(sd["fields"], s.fields):
+                fd["label"] = f.label_en or f.label
+                fd["help"] = f.help_en or f.help
+                if fd.get("options"):
+                    fd["options"] = [_opt_en(o) for o in fd["options"]]
+                for ifd, iff in zip(fd.get("item_fields") or [], f.item_fields or []):
+                    ifd["label"] = iff.label_en or iff.label
+                    ifd["help"] = iff.help_en or iff.help
+                    if ifd.get("options"):
+                        ifd["options"] = [_opt_en(o) for o in ifd["options"]]
+        out.append(sd)
+    return out

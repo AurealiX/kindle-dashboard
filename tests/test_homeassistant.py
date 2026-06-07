@@ -135,6 +135,57 @@ def test_list_entities_filter_and_truncate():
         mod._fetch_states = orig
 
 
+def test_printer_prefix_autodetects_unique_short_prefix():
+    states = [
+        {"entity_id": "binary_sensor.a1_123_online", "state": "on", "attributes": {}},
+        {"entity_id": "sensor.a1_123_print_progress", "state": "42", "attributes": {}},
+        {"entity_id": "sensor.a1_123_print_status", "state": "running", "attributes": {}},
+        {"entity_id": "sensor.a1_123_remaining_time", "state": "1.5", "attributes": {}},
+        {"entity_id": "sensor.a1_123_nozzle_temperature", "state": "210", "attributes": {}},
+        {"entity_id": "sensor.a1_123_bed_temperature", "state": "60", "attributes": {}},
+        {"entity_id": "sensor.a1_123_printer_name", "state": "A1-01", "attributes": {}},
+    ]
+    pr = ha._build_printer(states, "a1_")
+    assert pr["online"] is True
+    assert pr["status"] == "running"
+    assert pr["progress"] == 42
+    assert pr["remaining_min"] == 1.5
+    assert pr["nozzle"] == "210" and pr["bed"] == "60"
+    assert pr["printer_name"] == "A1-01"
+
+
+def test_printer_prefix_keeps_ambiguous_short_prefix():
+    states = [
+        {"entity_id": "sensor.a1_111_print_progress", "state": "10", "attributes": {}},
+        {"entity_id": "sensor.a1_222_print_progress", "state": "20", "attributes": {}},
+    ]
+    assert ha._resolve_printer_prefix(states, "a1_") == "a1_"
+
+
+def test_list_printers(monkeypatch=None):
+    states = [
+        {"entity_id": "binary_sensor.a1_123_online", "state": "on",
+         "attributes": {"friendly_name": "A1_123 在线"}},
+        {"entity_id": "sensor.a1_123_print_progress", "state": "42", "attributes": {}},
+        {"entity_id": "sensor.a1_123_print_status", "state": "running", "attributes": {}},
+        {"entity_id": "sensor.a1_123_nozzle_temperature", "state": "210", "attributes": {}},
+        {"entity_id": "sensor.a1_123_bed_temperature", "state": "60", "attributes": {}},
+        {"entity_id": "sensor.a1_123_printer_name", "state": "A1-01", "attributes": {}},
+    ]
+    import server.sources.homeassistant as mod
+    orig = mod._fetch_states
+    mod._fetch_states = lambda url, token: states
+    try:
+        printers = mod.list_printers("http://x", "t")["printers"]
+        assert printers == [{
+            "prefix": "a1_123", "name": "A1-01", "online": True,
+            "status": "running", "stage": "", "progress": 42,
+            "nozzle": "210", "bed": "60",
+        }]
+    finally:
+        mod._fetch_states = orig
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

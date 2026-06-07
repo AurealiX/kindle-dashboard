@@ -190,7 +190,38 @@ def _state(states, prefix, entity):
     return None
 
 
+def _printer_prefixes(states):
+    suffix = "_print_progress"
+    out = []
+    for s in states:
+        eid = s.get("entity_id", "")
+        if eid.startswith("sensor.") and eid.endswith(suffix):
+            out.append(eid[len("sensor."):-len(suffix)])
+    return sorted(set(out))
+
+
+def _resolve_printer_prefix(states, prefix):
+    prefix = (prefix or "").strip()
+    if prefix.startswith("sensor."):
+        prefix = prefix[len("sensor."):]
+    for suffix in ("_print_progress", "_print_status", "_remaining_time"):
+        if prefix.endswith(suffix):
+            prefix = prefix[:-len(suffix)]
+    if not prefix:
+        return prefix
+    candidates = _printer_prefixes(states)
+    if prefix in candidates:
+        return prefix
+    probes = [prefix]
+    trimmed = prefix.rstrip("_")
+    if trimmed and trimmed != prefix:
+        probes.append(trimmed)
+    matches = [c for c in candidates if any(c.startswith(p) for p in probes)]
+    return matches[0] if len(matches) == 1 else prefix
+
+
 def _build_printer(states, prefix):
+    prefix = _resolve_printer_prefix(states, prefix)
     g = lambda e: _state(states, prefix, e)
     online = None
     for s in states:
@@ -221,6 +252,36 @@ def _build_printer(states, prefix):
         "cooling_fan": g("cooling_fan_speed") or "0",
         "printer_name": g("printer_name") or "A1",
     }
+
+
+def _printer_name(states, prefix):
+    name = _state(states, prefix, "printer_name")
+    if name not in (None, "", "unavailable", "unknown"):
+        return name
+    for s in states:
+        if s.get("entity_id") == f"binary_sensor.{prefix}_online":
+            return (s.get("attributes") or {}).get("friendly_name") or prefix
+    return prefix
+
+
+def list_printers(url, token):
+    """扫描 HA states,返回可作为打印机页数据源的拓竹打印机候选。"""
+    states = _fetch_states(url.strip().rstrip("/"), token.strip())
+    printers = []
+    for prefix in _printer_prefixes(states):
+        pr = _build_printer(states, prefix)
+        printers.append({
+            "prefix": prefix,
+            "name": _printer_name(states, prefix),
+            "online": pr["online"],
+            "status": pr.get("status") or "",
+            "stage": pr.get("stage") or "",
+            "progress": pr.get("progress") or 0,
+            "nozzle": pr.get("nozzle") or "",
+            "bed": pr.get("bed") or "",
+        })
+    printers.sort(key=lambda x: (not x["online"], str(x["name"]).lower()))
+    return {"printers": printers}
 
 
 # ============================================================

@@ -75,8 +75,8 @@ while true; do
     count=$((count + 1))
     [ $((count % 3)) -eq 0 ] && report_battery
     if [ $((count % CLEAR_EVERY)) -eq 0 ]; then
-        fbink -g file=/mnt/us/frame.png -W GC16 -f   # 定期全刷去残影
+        fbink -g file=/mnt/us/frame.png -W GC16 -f >/dev/null 2>&1   # 定期全刷去残影
     else
-        fbink -g file=/mnt/us/frame.png -W REAGL
+        fbink -g file=/mnt/us/frame.png -W REAGL >/dev/null 2>&1
     fi
-done
+done   # 循环内 fbink 静默,避免 dashboard.log 在小存储的 Kindle 上长期累积

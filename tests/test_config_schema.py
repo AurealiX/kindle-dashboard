@@ -56,6 +56,9 @@ def test_ha_page_enable_and_pages():
     cfg = schema.default_config()
     assert "ha" not in schema.active_pages(cfg)
     cfg["ha_page"]["entities"] = [{"entity_id": "light.x", "name": "", "icon": ""}]
+    assert "ha" not in schema.active_pages(cfg)        # 只选实体不够,还需 HA 地址/令牌都配好
+    cfg["home_assistant"]["url"] = "http://h:8123"
+    cfg["home_assistant"]["token"] = "t"
     assert "ha" in schema.active_pages(cfg)
     # entity_id 必填(空 → 报错)
     cfg["ha_page"]["entities"] = [{"entity_id": "", "name": "", "icon": ""}]

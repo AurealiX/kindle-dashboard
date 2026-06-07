@@ -10,8 +10,10 @@ PLIST="$HOME/Library/LaunchAgents/$PLIST_LABEL.plist"
 
 echo "==> 停止菜单栏程序..."
 MB_PLIST="$HOME/Library/LaunchAgents/com.kindle-dashboard.menubar.plist"
+MB_APP="$REPO/data/Kindle Dashboard Menu.app"
 launchctl unload "$MB_PLIST" 2>/dev/null || true
 rm -f "$MB_PLIST"
+rm -rf "$MB_APP"
 
 echo "==> 停止提醒事项同步..."
 SYNC_PLIST="$HOME/Library/LaunchAgents/com.kindle-dashboard.reminders.plist"

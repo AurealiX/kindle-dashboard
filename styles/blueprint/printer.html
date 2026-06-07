@@ -19,12 +19,12 @@
 .idle .big{font-size:30px;font-weight:700;color:var(--ink);margin-bottom:10px;letter-spacing:1px;}
 </style></head><body>
 <div class="sheet"><div class="drawing">
-  <div class="mast"><div><div class="pj">KINDLE-DASH · PRINTER</div><div class="ti">3D 打印 / {% if printer %}{{ printer.name }}{% else %}A1{% endif %}</div></div><div class="meta tnum">{{ now }}</div></div>
+  <div class="mast"><div><div class="pj">KINDLE-DASH · PRINTER</div><div class="ti">{{ t.printer_title }} / {% if printer %}{{ printer.name }}{% else %}A1{% endif %}</div></div><div class="meta tnum">{{ now }}</div></div>
   {% if printer and printer.printing %}
   {% set off = (263.9 * (100 - printer.progress) / 100)|round(1) %}
   <div class="main">
     <div class="col col-l">
-      <div class="fig"><span class="tag">P.1</span><span class="cap">作业进度</span><span class="ln"></span></div>
+      <div class="fig"><span class="tag">P.1</span><span class="cap">{{ t.printer_progress }}</span><span class="ln"></span></div>
       <svg class="ring" viewBox="0 0 100 100">
         <circle cx="50" cy="50" r="42" fill="none" stroke="#d8d8d8" stroke-width="6"/>
         <circle cx="50" cy="50" r="42" fill="none" stroke="#000" stroke-width="6" stroke-dasharray="263.9" stroke-dashoffset="{{ off }}" transform="rotate(-90 50 50)"/>
@@ -35,20 +35,20 @@
       <div class="fname">{{ printer.task }}</div>
       <span class="state">{{ printer.state_text }}</span>
       <div class="layer tnum">LAYER {{ printer.layer }} / {{ printer.total_layer }}</div>
-      <div class="eta tnum">剩余 {{ printer.remaining_text }} · ETA {{ printer.eta_clock }}</div>
+      <div class="eta tnum">{{ t.printer_remaining }} {{ printer.remaining_text }} · ETA {{ printer.eta_clock }}</div>
     </div>
     <div class="vrule"></div>
     <div class="col col-r">
-      <div class="fig"><span class="tag">P.2</span><span class="cap">温度测点</span><span class="ln"></span></div>
+      <div class="fig"><span class="tag">P.2</span><span class="cap">{{ t.printer_temp }}</span><span class="ln"></span></div>
       <div class="temp">
-        <div class="c"><div class="l">NOZZLE / 喷头</div><div class="v tnum">{{ printer.nozzle }}<span class="u">°C</span></div><div class="t tnum">目标 {{ printer.nozzle_t }}°C</div></div>
-        <div class="c"><div class="l">BED / 热床</div><div class="v tnum">{{ printer.bed }}<span class="u">°C</span></div><div class="t tnum">目标 {{ printer.bed_t }}°C</div></div>
+        <div class="c"><div class="l">{{ t.printer_nozzle }}</div><div class="v tnum">{{ printer.nozzle }}<span class="u">°C</span></div><div class="t tnum">{{ t.printer_target }} {{ printer.nozzle_t }}°C</div></div>
+        <div class="c"><div class="l">{{ t.printer_bed }}</div><div class="v tnum">{{ printer.bed }}<span class="u">°C</span></div><div class="t tnum">{{ t.printer_target }} {{ printer.bed_t }}°C</div></div>
       </div>
-      <div class="fig mt"><span class="tag">P.3</span><span class="cap">作业参数</span><span class="ln"></span></div>
-      <div class="dim"><span class="k">打印速度 SPEED</span><span class="v">{{ printer.speed }}</span></div>
-      <div class="dim"><span class="k">材料 MATERIAL</span><span class="v">{{ printer.material }}</span></div>
-      <div class="dim"><span class="k">预计耗材 WEIGHT</span><span class="v tnum">{{ printer.weight }} g</span></div>
-      <div class="dim"><span class="k">冷却风扇 FAN</span><span class="v tnum">{{ printer.cooling_fan }}%</span></div>
+      <div class="fig mt"><span class="tag">P.3</span><span class="cap">{{ t.printer_params }}</span><span class="ln"></span></div>
+      <div class="dim"><span class="k">{{ t.printer_speed }}</span><span class="v">{{ printer.speed }}</span></div>
+      <div class="dim"><span class="k">{{ t.printer_material }}</span><span class="v">{{ printer.material }}</span></div>
+      <div class="dim"><span class="k">{{ t.printer_weight }}</span><span class="v tnum">{{ printer.weight }} g</span></div>
+      <div class="dim"><span class="k">{{ t.printer_fan }}</span><span class="v tnum">{{ printer.cooling_fan }}%</span></div>
     </div>
   </div>
   {% else %}

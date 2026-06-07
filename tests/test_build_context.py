@@ -2,7 +2,7 @@
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import date, datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
@@ -27,8 +27,7 @@ def _mock_cache():
         ],
         "ccusage": {"ok": True,
                     "cc": {"daily": [{"date": "2026-06-07", "totalTokens": 1_200_000, "totalCost": 8.1}]},
-                    "codex": {"daily": [{"date": "2026-06-07", "totalTokens": 600_000, "costUSD": 4.2}]},
-                    "customCostCNY": {"total_today": 12.34, "provider_name": "中转站"}},
+                    "codex": {"daily": [{"date": "2026-06-07", "totalTokens": 600_000, "costUSD": 4.2}]}},
         "rate_limits": {"five_hour": {"used_percentage": 42, "resets_at": soon},
                         "seven_day": {"used_percentage": 30, "resets_at": soon}},
         "codex_rate_limits": {"five_hour": {"used_percentage": 15, "resets_at": soon},
@@ -69,13 +68,37 @@ def test_home_weather_and_reminders():
     assert any(x["title"] == "明天体检" for x in r["upcoming"])
 
 
+def test_apple_utc_due_date_uses_local_day():
+    now = datetime(2026, 6, 8, 9, 0)
+    ctx = bc.prep_context(now, {
+        "reminders": [
+            {"title": "本地今天", "dueDate": "2026-06-07T16:00:00.000Z", "completed": False},
+        ],
+    })
+    assert [x["title"] for x in ctx["home"]["reminders"]["today"]] == ["本地今天"]
+
+
 def test_ai_section():
     ctx = bc.prep_context(NOW, _mock_cache())
     ai = ctx["ai"]
     assert ai["five_pct"] == 42 and ai["cx_five_pct"] == 15
     assert ai["cc_tok"] == "1M" or ai["cc_tok"].endswith("M")
-    assert ai["custom_total"] == "¥12.34" and ai["custom_name"] == "中转站"
+    assert ai["custom_total"] == ""                         # 无 cfg=倍率默认 1.0,不显示自定义价
     assert len(ai["chart"]) == 7                            # 近 7 天
+
+
+def test_custom_rate_two_tier():
+    """Claude/Codex 各一档倍率,自定义价 = 各自官方价 × 倍率 之和。"""
+    cfg = {"ai_usage": {"claude_rate": 0.5, "codex_rate": 0.1}}
+    ai = bc.prep_context(NOW, _mock_cache(), cfg)["ai"]
+    # cc 8.1×0.5=4.05 + cx 4.2×0.1=0.42 = 4.47
+    assert ai["custom_total"] == "¥4.47"
+
+
+def test_custom_rate_default_hidden():
+    """两档都=1.0 视为未配置,自定义价隐藏(避免与官方价重复)。"""
+    ai = bc.prep_context(NOW, _mock_cache(), {"ai_usage": {"claude_rate": 1.0, "codex_rate": 1.0}})["ai"]
+    assert ai["custom_total"] == ""
 
 
 def test_device_and_printer():
@@ -117,6 +140,15 @@ def test_device_rename_and_field_filter():
     assert nas["show"]["cpu"] and nas["show"]["mem"]
     assert not nas["show"]["net"] and not nas["show"]["disk_io"]
     assert nas["vols"] == []                                 # 未勾选任何分区
+
+
+def test_calendar_solar_terms_are_calculated_after_2026():
+    """节气按年份计算;2028 小寒会从 2026 的 1/5 漂移到 1/6。"""
+    cal = bc.build_calendar(date(2028, 1, 1))
+    labels = {cell["d"]: cell["l"] for row in cal for cell in row if cell}
+    assert labels[5] != "小寒"
+    assert labels[6] == "小寒"
+    assert bc.solar_term_text(date(2028, 1, 6)) == "今日小寒"
 
 
 if __name__ == "__main__":

@@ -27,7 +27,19 @@ PORT=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('
 RL_URL="http://127.0.0.1:$PORT/api/rate-limits"
 CX_INT=$("$PY" -c "import yaml;v=(yaml.safe_load(open('$CONFIG')) or {}).get('ai_usage',{}).get('codex_quota_interval',600);print(v if isinstance(v,int) and v>=60 else 600)" 2>/dev/null || echo 600)
 CL_INT=$("$PY" -c "import yaml;v=(yaml.safe_load(open('$CONFIG')) or {}).get('ai_usage',{}).get('claude_quota_interval',300);print(v if isinstance(v,int) and v>=60 else 300)" 2>/dev/null || echo 300)
-PROXY=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('quota',{}).get('codex_proxy','') or '')" 2>/dev/null || echo "")
+PROXY=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('ai_usage',{}).get('codex_proxy','') or '')" 2>/dev/null || echo "")
+
+"$PY" - "$CONFIG" <<'PYEOF'
+import sys, yaml
+
+p = sys.argv[1]
+with open(p, encoding="utf-8") as f:
+    c = yaml.safe_load(f) or {}
+c.setdefault("ai_usage", {})["enabled"] = True
+with open(p, "w", encoding="utf-8") as f:
+    yaml.safe_dump(c, f, allow_unicode=True, sort_keys=False)
+PYEOF
+echo "  ✓ 已同步配置:AI 用量页已启用"
 
 # Claude 脚本运行时读的地址/节流(statusLine 由 Claude Code 调,不走 launchd,没环境变量注入,靠这个 conf)
 mkdir -p "$QDIR"

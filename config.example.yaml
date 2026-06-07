@@ -12,6 +12,7 @@
 # ============================================================
 
 server:
+  language: zh              # 界面/看板语言:zh 中文 / en English(en 隐藏农历节气生肖等中国元素)
   port: 8585
   timezone: Asia/Shanghai
   page_interval: 20          # Kindle 每隔几秒翻页
@@ -21,6 +22,7 @@ server:
   render_rotate: 270         # 渲染后旋转成竖屏写墨水屏(270=顺时针默认;90=逆时针;0=不转)
   render_grayscale: true
   render_interval: 30        # 多久重渲染一次看板图(秒;刷新时钟与已变数据,与采集解耦)
+  access_token: ""           # 设置页访问令牌;安装/首次启动自动生成(留空=不鉴权,不推荐)
 
 # 天气(和风天气 QWeather)——填了 key+location 才出天气
 # 推荐用设置网页:填好 host/key 保存后,直接搜城市名选择,自动匹配编码、自动填城市名。
@@ -45,13 +47,15 @@ mstodo:
   interval: 600              # 采集间隔(秒);待办变化慢,建议 ≥600
 
 # AI 用量(Claude / Codex)——本机直接读 ccusage,无中间服务
-# 安装时选「启用 AI 用量」会自动装 Node + ccusage 并把 enabled 置 true
+# 安装时选「启用 AI 用量」会自动检测/安装 Node + ccusage 并把 enabled 置 true
 ai_usage:
   enabled: false
-  custom_rate: 1.0           # 官方价 × 倍率 = 实际花费,默认 1.0
+  claude_rate: 1.0           # Claude 官方价 × 倍率 = 自定义花费,默认 1.0
+  codex_rate: 1.0            # Codex 官方价 × 倍率,默认 1.0;两档都为 1 时不显示自定义价
   interval: 300              # 本机 ccusage 采集间隔(秒);解析日志约 10s,建议 ≥300
   codex_quota_interval: 600  # Codex 额度上报(秒);launchd 定时器,改后重跑 enable_quota.sh
   claude_quota_interval: 300 # Claude 额度上报节流(秒);statusLine 推送
+  codex_proxy: ""            # Codex 额度采集代理,如 http://127.0.0.1:7897;留空=直连
 
 # Home Assistant ——填了地址+令牌,打印机等设备页才能拉数据
 home_assistant:
@@ -62,7 +66,7 @@ home_assistant:
 # 3D 打印机(经 HA 拉取,需先配好上面的 HA)
 printer:
   enabled: false
-  entity_prefix: ""          # HA 中该打印机实体公共前缀,如 a1_xxxx
+  entity_prefix: ""          # 设置页可自动扫描选择;也可手填,如 a1_03919c451100824
 
 # 智能家居实体墙(经 Home Assistant)——选了实体才出这一页
 # 推荐用设置网页搜实体添加;手填示例(去掉注释填进 entities):

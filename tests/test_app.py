@@ -1,15 +1,18 @@
 """主服务 API 验证(FastAPI TestClient)。用临时 config,不污染仓库;不触发采集/渲染线程。"""
 import os
 import sys
+import json
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 # 必须在 import app 前指定临时配置路径(app 模块级初始化 ConfigManager)
-os.environ["KINDLE_CONFIG"] = os.path.join(tempfile.mkdtemp(), "config.yaml")
+TEST_DATA_DIR = tempfile.mkdtemp()
+os.environ["KINDLE_CONFIG"] = os.path.join(TEST_DATA_DIR, "config.yaml")
+os.environ["KINDLE_DATA_DIR"] = TEST_DATA_DIR
 
 from fastapi.testclient import TestClient  # noqa: E402
-from server.app import app                  # noqa: E402
+from server.app import app, cm              # noqa: E402
 
 client = TestClient(app)                     # 不用 with → 不触发 startup/data_loop
 
@@ -17,6 +20,22 @@ client = TestClient(app)                     # 不用 with → 不触发 startup
 def test_health():
     j = client.get("/health").json()
     assert j["status"] == "ok" and "active_pages" in j
+
+
+def test_auth_token_protects_management_apis():
+    """设了访问令牌:配置/管理接口需令牌;Kindle 拉图、设备上报、health 豁免。"""
+    cm.get()["server"]["access_token"] = "T0KEN"   # get() 返回 _config 引用,直接设/清,不走 secret 保留逻辑
+    try:
+        assert client.get("/api/config").status_code == 401          # 无令牌 → 挡住
+        assert client.get("/api/styles").status_code == 401
+        assert client.get("/api/config", headers={"X-Access-Token": "T0KEN"}).status_code == 200   # header 令牌
+        assert client.get("/api/config?token=T0KEN").status_code == 200                            # query 令牌
+        assert client.get("/kindle/frame.png").status_code == 200    # Kindle 拉图豁免
+        assert client.get("/health").status_code == 200              # health 豁免
+        assert client.post("/api/rate-limits",
+                           json={"source": "claude", "rate_limits": {}}).status_code == 200  # 设备上报豁免
+    finally:
+        cm.get()["server"]["access_token"] = ""    # 清掉,不影响其他测试(空=放行)
 
 
 def test_schema_served():
@@ -55,18 +74,38 @@ def test_device_push_and_discover():
     assert "cpu" in pc["fields"] and "vol:C:" in pc["fields"]  # 动态字段含分区
 
 
+def test_pull_device_merge_keeps_stale_prune_cleans():
+    """⑤:采集(_merge)只更新本轮成功项、**不删旧的**(单台临时失败保留上一帧、不凭空消失);
+    改名/删除的清理交给保存时的 _prune_pull_device_cache。push 发现设备始终保留。"""
+    from server.app import cache, _merge, _prune_pull_device_cache
+    cache["devices_metrics"] = {
+        "old-mac": {"hostname": "old-mac", "cpu_pct": 1},
+        "push-1": {"hostname": "push-1", "updated_at": 123, "cpu_pct": 2},
+    }
+    # 这轮只采到 new-mac(old-mac 临时失败、不在本轮结果)→ _merge 不该删 old-mac
+    _merge({"devices_metrics": {"new-mac": {"hostname": "new-mac", "cpu_pct": 3}}})
+    assert "old-mac" in cache["devices_metrics"]      # 单台失败保留上一帧,不凭空消失
+    assert "new-mac" in cache["devices_metrics"]
+    assert "push-1" in cache["devices_metrics"]
+    # 保存配置(machines 只剩 renamed)→ _prune 剪掉不在配置里的本机/SSH 旧指标,push 保留
+    _prune_pull_device_cache({"devices": {"machines": [{"name": "renamed", "mode": "local"}]}})
+    assert "old-mac" not in cache["devices_metrics"]
+    assert "new-mac" not in cache["devices_metrics"]
+    assert "push-1" in cache["devices_metrics"]
+
+
 def test_apple_sync_buckets_reminders():
     """提醒事项自采自推:POST read_reminders.js 的格式 → build_context 正确分桶。
     覆盖搬运缺口(installers/macos/reminders),防止接收端回归。"""
     from datetime import datetime
     from zoneinfo import ZoneInfo
-    from server.app import cache
+    from server.app import cache, APPLE_REMINDERS_CACHE, _load_apple_reminders_cache
     from server.render.build_context import prep_context
     # read_reminders.js 产出的字段:title/completed/list/dueDate/priority
     r = client.post("/api/apple-sync", json={
         "updated_at": "2026-06-07T22:00:00Z",
         "reminders": [
-            {"title": "过期事", "completed": False, "list": "工作", "dueDate": "2026-06-06T18:00:00Z", "priority": 5},
+            {"title": "过期事", "completed": False, "list": "工作", "dueDate": "2026-06-05T18:00:00Z", "priority": 5},
             {"title": "今天事", "completed": False, "list": "生活", "dueDate": "2026-06-07T10:00:00Z", "priority": 0},
             {"title": "明天事", "completed": False, "list": "待办", "dueDate": "2026-06-08T09:00:00Z", "priority": 1},
             {"title": "已完成", "completed": True,  "list": "待办", "dueDate": None, "priority": 0},
@@ -74,6 +113,12 @@ def test_apple_sync_buckets_reminders():
     })
     assert r.json()["status"] == "ok"
     assert cache.get("reminders")  # 接收端已存
+    persisted = json.load(open(APPLE_REMINDERS_CACHE, encoding="utf-8"))
+    assert persisted["reminders"][0]["title"] == "过期事"
+    cache.pop("reminders", None)
+    cache.pop("apple_updated", None)
+    _load_apple_reminders_cache()
+    assert cache.get("reminders") and cache.get("apple_updated") == "2026-06-07T22:00:00Z"
     now = datetime(2026, 6, 7, 22, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     rem = prep_context(now, dict(cache), {})["home"]["reminders"]
     assert rem["total"] == 3                                   # 已完成被过滤
@@ -103,6 +148,14 @@ def test_schema_location_is_city_with_hidden_name():
 def test_ha_entities_requires_saved_ha():
     """实体搜索需先配 HA 地址+令牌;空配置 → 400 + 明确提示(不打网络)。"""
     r = client.get("/api/ha-entities?q=客厅")
+    assert r.status_code == 400
+    j = r.json()
+    assert j["ok"] is False and "Home Assistant" in j["error"]
+
+
+def test_printers_endpoint_requires_saved_ha():
+    """打印机扫描需先配 HA 地址+令牌;空配置 → 400 + 明确提示(不打网络)。"""
+    r = client.get("/api/printers")
     assert r.status_code == 400
     j = r.json()
     assert j["ok"] is False and "Home Assistant" in j["error"]
@@ -139,8 +192,25 @@ def test_agent_files_served():
     assert client.get("/agent/push_agent.sh").status_code == 200
     assert client.get("/agent/collect_linux.sh").status_code == 200
     assert client.get("/agent/collect_macos.sh").status_code == 200
+    assert client.get("/agent/install.ps1").status_code == 200          # Windows
+    assert client.get("/agent/push_agent.ps1").status_code == 200
+    assert client.get("/agent/collect_windows.ps1").status_code == 200
     assert client.get("/agent/evil.sh").status_code == 404
     assert client.get("/agent/../config.yaml").status_code == 404   # 不许穿越白名单
+
+
+def test_server_url_replaces_loopback_for_agent_commands():
+    """设置页从 127.0.0.1 打开时,远程 agent 命令应使用 LAN 地址。"""
+    import server.app as appmod
+    old = appmod._lan_ips
+    appmod._lan_ips = lambda: ["192.168.1.20", "10.0.0.8"]
+    try:
+        j = client.get("/api/server-url", headers={"host": "127.0.0.1:8585"}).json()
+    finally:
+        appmod._lan_ips = old
+    assert j["is_loopback"] is True
+    assert j["recommended"] == "http://192.168.1.20:8585"
+    assert "http://192.168.1.20:8585" in j["candidates"]
 
 
 def test_styles_endpoint():
@@ -150,7 +220,7 @@ def test_styles_endpoint():
 
 def test_setup_page_served():
     r = client.get("/setup")
-    assert r.status_code == 200 and "实时预览" in r.text
+    assert r.status_code == 200 and "实时预览" in r.text and "/api/server-url" in r.text
 
 
 if __name__ == "__main__":

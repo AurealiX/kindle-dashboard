@@ -37,8 +37,7 @@ def mock_cache():
                     "cc": {"daily": [{"date": d, "totalTokens": 1_200_000 - i * 90000, "totalCost": 8.1}
                                      for i, d in enumerate([f"2026-06-{x:02d}" for x in range(1, 8)])]},
                     "codex": {"daily": [{"date": f"2026-06-0{x}", "totalTokens": 600_000, "costUSD": 4.2}
-                                        for x in range(1, 8)]},
-                    "customCostCNY": {"total_today": 12.34, "provider_name": "中转站"}},
+                                        for x in range(1, 8)]}},
         "rate_limits": {"five_hour": {"used_percentage": 42, "resets_at": soon},
                         "seven_day": {"used_percentage": 30, "resets_at": soon}},
         "codex_rate_limits": {"five_hour": {"used_percentage": 15, "resets_at": soon},
@@ -60,10 +59,13 @@ def mock_cache():
     }
 
 
-MOCK_CFG = {"devices": {"machines": [
-    {"name": "客厅NAS", "id": "nas", "mode": "push"},
-    {"name": "我的Mac", "id": "mac", "mode": "local"},
-]}}
+MOCK_CFG = {
+    "devices": {"machines": [
+        {"name": "客厅NAS", "id": "nas", "mode": "push"},
+        {"name": "我的Mac", "id": "mac", "mode": "local"},
+    ]},
+    "ai_usage": {"claude_rate": 0.5, "codex_rate": 0.1},   # 演示自定义价倍率
+}
 
 
 def main():

@@ -19,6 +19,9 @@ ENABLE = os.path.join(REPO, "installers/macos/enable_reminders.sh")
 DISABLE = os.path.join(REPO, "installers/macos/disable_reminders.sh")
 SYNC = os.path.join(REPO, "installers/macos/reminders/sync_reminders.sh")
 INSTALL = os.path.join(REPO, "installers/macos/install.sh")
+RESTART = os.path.join(REPO, "installers/macos/restart.sh")
+UNINSTALL = os.path.join(REPO, "installers/macos/uninstall.sh")
+MENUBAR = os.path.join(REPO, "server/menubar.py")
 
 
 def _run(script, cfg_path):
@@ -67,8 +70,40 @@ def test_enable_preserves_other_config(tmp_path):
     assert c["server"]["port"] == 8585
 
 
-@pytest.mark.parametrize("script", [ENABLE, DISABLE, SYNC, INSTALL])
+@pytest.mark.parametrize("script", [ENABLE, DISABLE, SYNC, INSTALL, RESTART, UNINSTALL])
 def test_bash_syntax_ok(script):
     assert os.path.exists(script), f"脚本不存在:{script}"
     r = subprocess.run(["bash", "-n", script], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
+
+
+def test_menubar_installer_uses_lsui_app_bundle():
+    text = open(INSTALL, encoding="utf-8").read()
+    assert "Kindle Dashboard Menu.app" in text
+    assert "<key>LSUIElement</key><true/>" in text
+    assert "<array><string>$MB_EXEC</string></array>" in text
+    assert "<array><string>$PY</string><string>-m</string><string>server.menubar</string></array>" not in text
+
+
+def test_uninstall_removes_menubar_app_bundle():
+    text = open(UNINSTALL, encoding="utf-8").read()
+    assert "Kindle Dashboard Menu.app" in text
+    assert 'rm -rf "$MB_APP"' in text
+
+
+def test_restart_starts_service_even_when_autostart_is_off():
+    text = open(RESTART, encoding="utf-8").read()
+    assert 'LABEL="com.kindle-dashboard"' in text
+    assert 'launchctl start "$LABEL"' in text
+
+
+def test_menubar_is_icon_only_with_autostart_toggle():
+    text = open(MENUBAR, encoding="utf-8").read()
+    assert "● 看板" not in text
+    assert "○ 看板" not in text
+    assert 'title=""' in text or 'title = ""' in text
+    assert 'rumps.MenuItem("开机自启"' in text
+    assert "item.state = 1 if checked else 0" in text
+    assert 'kwargs["template"] = True' in text
+    assert "Resampling" in text
+    assert "rounded_rectangle" in text

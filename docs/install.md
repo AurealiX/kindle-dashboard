@@ -15,19 +15,20 @@ bash installers/macos/install.sh
 ```
 
 - 配置文件:仓库根 `config.yaml`(首次从 `config.example.yaml` 生成)
-- 日志:`data/service.log`
+- 日志:`data/*.log`(service / menubar / codex-quota / reminders);**服务自动轮转**——超 5MB 截断只留最近 1MB,长期跑不爆盘,无需手动清。
 - 改端口需重启服务;其余配置网页保存即热重载
+- **访问令牌**(防同 WiFi 他人访问设置页):首次启动自动生成,存 `config.yaml` 的 `server.access_token`;`install.sh` 装完会打印 `http://<IP>:端口/setup?token=...`,**用这个带令牌的链接打开设置页**(或点菜单栏「打开设置页」)。`/api/*` 与预览需令牌;**Kindle 拉图(`/kindle/frame.png`)、设备上报、`/health` 豁免**,不受影响。令牌留空=不鉴权(不推荐)。
 
 安装脚本会自动处理依赖,中途会问你两件事:
 - **渲染引擎**:没检测到 Chrome 时,问是否自动下载内置 chromium(playwright,约 150MB,装进 venv、不动系统)。选 Y 即可,无需自己装 Chrome。
-- **AI 用量统计**:问是否启用(见下「AI 用量」);选启用会自动装 Node + ccusage,不用你手动装。
+- **AI 用量统计**:问是否启用(见下「AI 用量」);选启用会自动检测 Node + ccusage,缺了再安装,不用你手动装。
 
-**菜单栏程序**:装完后 Mac 顶部状态栏出现 `● 看板`(运行中)/ `○ 看板`(已停),点开可:打开设置页、重启/启停服务、退出。不用记命令也能看状态、开关服务。
+**菜单栏程序**:装完后 Mac 顶部状态栏只显示 Kindle 小图标,不显示「看板」文字。点开可看运行状态、打开设置页、重启/启停服务,也可用「开机自启」勾选项控制主服务下次登录是否自动启动。安装脚本会生成一个本地 `LSUIElement` app bundle,只显示在顶部状态栏,不会在 Dock 里显示 Python 图标。依赖 `rumps`,install.sh 会自动装(老环境的 venv 若缺它,重跑 install.sh 即补上)。
 
 ### 更新已部署的服务(代码有新版时)
 配置改动网页保存即热重载;但 **Python 代码更新必须重启进程**才生效。步骤:
 1. 拿到最新代码(git 用户 `git pull`;手动同步则把最新文件覆盖到本地项目目录)。
-2. 重新跑 `bash installers/macos/install.sh`——它会更新依赖、重启 launchd 服务、跑健康自检。`config.yaml` 已存在则保留,不会覆盖你的设置。
+2. 重新跑 `bash installers/macos/install.sh`(更新依赖+重启+自检),或只想重启用 `bash installers/macos/restart.sh`(主服务+菜单栏一并重启)。`config.yaml` 已存在则保留,不覆盖你的设置。
 3. 验证新代码已上线:浏览器开 `http://<本机IP>:端口/health`,或某新端点确认。
 > ⚠️ 不要直接在网络共享盘(SMB/NFS,Mac 上的 `/Volumes/...`)里跑服务:venv 在网络盘建不干净。务必先把项目拷到本地盘(如 `~/kindle-dashboard`)再装/更新。
 
@@ -42,7 +43,7 @@ bash installers/macos/install.sh
 ### Home Assistant(打印机/更多设备)
 1. HA 用户资料页 → 创建**长期访问令牌**(Long-Lived Access Token)
 2. 设置页「Home Assistant」填地址 + 令牌
-3. 「3D 打印机」填实体前缀(如 `a1_xxxx`)→ 打印机页出现
+3. 「3D 打印机」点「扫描」选择打印机 → 保存后打印机页出现
 
 ### AI 用量(ccusage)
 - **本机直采,零配置,无中间服务**:安装时回答"启用 AI 用量"→ 自动装 Node + [ccusage](https://github.com/ryoppippi/ccusage) 并把 `ai_usage.enabled` 置 true,服务端每轮跑 `ccusage claude/codex daily --json` 读本机日志(见 `server/sources/ccusage_cli.py`)。看板服务跑在哪台机器就读那台的用量。
@@ -52,11 +53,11 @@ bash installers/macos/install.sh
 在 AI 页显示 Claude / Codex 的额度用量%。**push 模式**:在跑 Claude Code / Codex CLI 的机器上采集,POST 到看板 `/api/rate-limits`(看板服务本身拿不到这些数据,只能被设备送上门)。
 
 - **Claude**(官方机制,稳):走 Claude Code 的 **statusLine** —— Claude Code 把含 `rate_limits` 的 JSON 从 stdin 喂给你配的状态栏命令。`enable_quota.sh` 检测 `~/.claude/settings.json`:**没配过 statusLine 就备份后写入**指向 `installers/macos/quota/claude_statusline.py`;**已自定义则不覆盖**,打印「把那段 POST 抄进你自己的 statusline」的指引(脚本里 `# >>> 上报额度` 到 `# <<<` 那段)。
-- **Codex**(⚠️ 非公开接口,可能失效):`codex_quota.py` 读 `~/.codex/auth.json` 调 `chatgpt.com/backend-api/wham/usage`,launchd 定时上报。`wham/usage` 是 OpenAI 内部接口、无文档,**官方一改即失效**(不影响 Claude)。国内访问 chatgpt.com 多半要代理:在 config 设 `quota.codex_proxy: http://127.0.0.1:7897`。
+- **Codex**(⚠️ 非公开接口,可能失效):`codex_quota.py` 读 `~/.codex/auth.json` 调 `chatgpt.com/backend-api/wham/usage`,launchd 定时上报。`wham/usage` 是 OpenAI 内部接口、无文档,**官方一改即失效**(不影响 Claude)。国内访问 chatgpt.com 多半要代理:设置页「AI 用量」填 **Codex 代理**(或 config 设 `ai_usage.codex_proxy: http://127.0.0.1:7897`)。
 
 启用方式(在装看板的 Mac 上、项目目录执行):
 - **装看板时**:`install.sh` 会问「是否启用 AI 额度?」+「Codex 多久上报一次(秒)」,选 `y` 即自动装好。
-- **事后想加**:`bash installers/macos/enable_quota.sh`
+- **事后想加**:`bash installers/macos/enable_quota.sh`。脚本会同步把 `ai_usage.enabled` 置 true,避免装了额度采集但 AI 页仍被隐藏。
 - **停用**:`bash installers/macos/disable_quota.sh`(卸 Codex launchd;Claude 的 statusLine 按提示自行撤)
 - **间隔**:`ai_usage.codex_quota_interval`(秒,launchd)/ `ai_usage.claude_quota_interval`(秒,statusLine 节流);改后重跑 `enable_quota.sh` 生效。
 
@@ -71,7 +72,8 @@ bash installers/macos/install.sh
   ```
   装好后每 30 秒(改末尾数字调间隔)推一次,目标机自动出现在设置页「发现设备」里,点一下加进来改名。
   自启:Linux 用 `@reboot` cron、macOS 用 launchd。卸载:`... | sh -s -- uninstall`。
-  **间隔由目标机 agent 自己定(装时设),看板设置页改不了**(与本机/SSH 的服务端间隔不同)。Windows 版命令稍后提供。
+  **Windows**:设置页同时给出 PowerShell 命令(`iwr .../agent/install.ps1 ... | ...`),自启用『计划任务』(登录启动);卸载把末尾换成 `uninstall`。
+  **间隔由目标机 agent 自己定(装时设),看板设置页改不了**(与本机/SSH 的服务端间隔不同)。
 - **拉(SSH)**:服务端 SSH 进去读,目标机零安装;密码登录需主机装 `sshpass`,推荐用免密 key。
 - `platform` 选对(auto/linux/macos/windows);可重命名、勾选只显示部分指标。
 

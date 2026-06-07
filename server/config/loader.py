@@ -29,6 +29,8 @@ def _deep_fill(default: dict, loaded: dict) -> dict:
                 items = l.get(f.key, d.get(f.key, [])) or []
                 out_items = []
                 for item in items:
+                    if not isinstance(item, dict):
+                        continue   # 容错:手改 config 把列表项写成非 dict(如 machines: ["bad"])不致启动崩
                     filled = {}
                     for sub in (f.item_fields or []):
                         filled[sub.key] = item.get(sub.key, "" if sub.secret else sub.default)
@@ -133,6 +135,15 @@ class ConfigManager:
             self._load_unlocked()
             return []
 
+    def force_set(self, section, key, value):
+        """绕过全量校验,直接写单个字段并落盘 + 刷新 mtime。
+        用于 access_token 等"必须能生成"的项——否则 config 别处的校验错误(如 HA 填了 url 缺 token)
+        会把 save 整个挡下,令牌静默不生成、鉴权形同虚设。"""
+        with self._lock:
+            self._config.setdefault(section, {})[key] = value
+            self._atomic_write(self._config)
+            self._mtime = os.path.getmtime(self.path) if os.path.exists(self.path) else None
+
     def _merge_for_save(self, current: dict, incoming: dict) -> dict:
         """以 current 为底合并 incoming。secret 字段提交掩码/空=保留原值。"""
         merged = _deep_fill(schema.default_config(), current)
@@ -154,11 +165,21 @@ class ConfigManager:
 
     @staticmethod
     def _merge_list(f, old_items, new_items):
-        """列表整体替换;每项的 secret 子字段若提交掩码/空,按位置回填旧值。"""
+        """列表整体替换;每项的 secret 子字段若提交掩码/空,回填旧值。
+        回填**按每项的标识字段(item_fields[0],如设备 name)匹配旧项**,不按下标——
+        否则用户删/重排列表后,secret(如 SSH 密码)会串到另一项上(High bug)。
+        标识匹配不到(新增项或改了名)→ 视为新项,secret 不回填(留空,需重填)。"""
+        key_field = f.item_fields[0].key if f.item_fields else None
+        old_by_key = {}
+        if key_field:
+            for o in (old_items or []):
+                k = (o or {}).get(key_field)
+                if k is not None and k != "":
+                    old_by_key[k] = o
         out = []
-        for i, item in enumerate(new_items or []):
+        for item in (new_items or []):
+            old = old_by_key.get(item.get(key_field), {}) if key_field else {}
             filled = {}
-            old = old_items[i] if i < len(old_items) else {}
             for sub in (f.item_fields or []):
                 v = item.get(sub.key, "" if sub.secret else sub.default)
                 if sub.secret and (not str(v).strip() or v == SECRET_MASK):
