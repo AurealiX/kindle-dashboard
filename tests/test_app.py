@@ -213,6 +213,18 @@ def test_server_url_replaces_loopback_for_agent_commands():
     assert "http://192.168.1.20:8585" in j["candidates"]
 
 
+def test_lan_priority_demotes_proxy_tun():
+    """开着代理(Clash 的 198.18.0.1 TUN)时,真实 LAN 段应排前,虚拟网卡垫底。
+    防回归:_lan_ips 的 recommended=ips[0] 不能选中 198.18.x。"""
+    import server.app as appmod
+    # socket 探测常把代理 TUN 放第一位,排序后必须被挤到最后
+    got = sorted(["198.18.0.1", "192.168.5.19", "10.0.0.8", "172.20.1.2"],
+                 key=appmod._lan_priority)
+    assert got[0] == "192.168.5.19"        # 192.168 段最优先
+    assert got[-1] == "198.18.0.1"         # 代理 TUN 垫底
+    assert appmod._lan_priority("198.18.0.1") > appmod._lan_priority("10.0.0.8")
+
+
 def test_styles_endpoint():
     j = client.get("/api/styles").json()
     assert "style_a" in j["styles"] and "home" in j["pages"]

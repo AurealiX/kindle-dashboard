@@ -112,6 +112,23 @@ def _valid_lan_ip(ip):
     return bool(ip and not ip.startswith(("127.", "169.254.")) and ip != "0.0.0.0")
 
 
+def _lan_priority(ip):
+    """局域网地址优先级(越小越优先)。常见家用/办公 LAN 段(RFC1918)优先;
+    VPN/代理 TUN(Clash 等用 198.18.0.0/15)、CGNAT(100.64/10)等垫底,
+    避免开着代理时把 198.18.0.1 这种虚拟网卡地址当成看板局域网地址。"""
+    if ip.startswith("192.168."):
+        return 0
+    if ip.startswith("10."):
+        return 1
+    if ip.startswith("172."):
+        try:
+            if 16 <= int(ip.split(".")[1]) <= 31:    # 172.16.0.0/12
+                return 2
+        except (ValueError, IndexError):
+            pass
+    return 9   # 198.18.x(代理 TUN)/100.64.x(CGNAT)等非典型 LAN,排最后
+
+
 def _lan_ips():
     """尽力找本机可被局域网访问的 IPv4;第一个优先用于生成远程 agent 命令。"""
     ips = []
@@ -146,6 +163,9 @@ def _lan_ips():
             continue
         for ip in re.findall(r"\binet\s+(\d+\.\d+\.\d+\.\d+)", out):
             add(ip)
+    # 按家用 LAN 段优先排序(稳定排序保留同级原有顺序):真实局域网 IP 排前,
+    # 代理/VPN 的 198.18.x 之类垫底,recommended=ips[0] 才不会误选虚拟网卡地址。
+    ips.sort(key=_lan_priority)
     return ips
 
 
