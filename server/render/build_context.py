@@ -1,0 +1,362 @@
+"""数据整合层:把各数据源的原始 cache 整理成符合数据契约的 render context。
+
+prep_context(now, cache) 是唯一入口:输入聚合 cache(各采集器写入),输出 contract 定义的 ctx。
+缺数据时各段降级为占位值(诚实降级),与 contract.empty_context() 同构。
+device 当前固定 nas/mac 两槽(1:1 沿用,保证 style_a 模板),动态机器字典见 data-contract.md 的 P0 待办。
+"""
+import time
+import calendar as cal_mod
+from datetime import datetime, date, timedelta, timezone
+from lunardate import LunarDate
+
+WEEKDAYS_CN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+LUNAR_MONTHS = ["", "正月", "二月", "三月", "四月", "五月", "六月",
+                "七月", "八月", "九月", "十月", "冬月", "腊月"]
+LUNAR_DAYS = ["", "初一", "初二", "初三", "初四", "初五", "初六", "初七", "初八", "初九", "初十",
+              "十一", "十二", "十三", "十四", "十五", "十六", "十七", "十八", "十九", "二十",
+              "廿一", "廿二", "廿三", "廿四", "廿五", "廿六", "廿七", "廿八", "廿九", "三十"]
+ZODIAC = ["鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊", "猴", "鸡", "狗", "猪"]
+STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
+BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+# TODO(P3): 节气表写死 2026 年。开源版应换算法或多年表;非 2026 年时 solar_term_text 自动降级为空。
+SOLAR_TERMS_2026 = [
+    (1,5,"小寒"),(1,20,"大寒"),(2,4,"立春"),(2,18,"雨水"),(3,5,"惊蛰"),(3,20,"春分"),
+    (4,5,"清明"),(4,20,"谷雨"),(5,5,"立夏"),(5,21,"小满"),(6,5,"芒种"),(6,21,"夏至"),
+    (7,7,"小暑"),(7,22,"大暑"),(8,7,"立秋"),(8,23,"处暑"),(9,7,"白露"),(9,23,"秋分"),
+    (10,8,"寒露"),(10,23,"霜降"),(11,7,"立冬"),(11,22,"小雪"),(12,7,"大雪"),(12,22,"冬至"),
+]
+HOLIDAYS = {(1,1):"元旦",(2,14):"情人节",(3,8):"妇女节",(4,5):"清明",(5,1):"劳动",
+            (5,4):"青年",(6,1):"儿童",(10,1):"国庆",(10,2):"国庆",(10,3):"国庆",(12,25):"圣诞"}
+LUNAR_HOLIDAYS = {(1,1):"春节",(1,15):"元宵",(5,5):"端午",(7,7):"七夕",(8,15):"中秋",(9,9):"重阳",(12,30):"除夕"}
+
+
+def _merge_daily(a, b):
+    """按日期合并两个 daily 数组,相同日期的 totalTokens/totalCost 相加。"""
+    merged = {}
+    for item in a:
+        d = item["date"]
+        merged[d] = {"date": d, "totalTokens": item.get("totalTokens", 0),
+                     "totalCost": item.get("totalCost", 0)}
+    for item in b:
+        d = item["date"]
+        if d in merged:
+            merged[d]["totalTokens"] += item.get("totalTokens", 0)
+            merged[d]["totalCost"] += item.get("totalCost", 0)
+        else:
+            merged[d] = {"date": d, "totalTokens": item.get("totalTokens", 0),
+                         "totalCost": item.get("totalCost", 0)}
+    return sorted(merged.values(), key=lambda x: x["date"])
+
+
+def fmt_cost(c):
+    if c >= 1000: return f"${c:,.0f}"
+    if c >= 100: return f"${c:.1f}"
+    return f"${c:.2f}"
+
+def fmt_tok(n):
+    if n >= 1e9: return f"{n/1e9:.1f}B"
+    if n >= 1e6: return f"{n/1e6:.0f}M"
+    if n >= 1e3: return f"{n/1e3:.0f}K"
+    return str(int(n))
+
+def fmt_bytes(n):
+    if n >= 1e12: return f"{n/1e12:.1f}T"
+    if n >= 1e9: return f"{n/1e9:.1f}G"
+    if n >= 1e6: return f"{n/1e6:.0f}M"
+    if n >= 1e3: return f"{n/1e3:.0f}K"
+    return str(int(n))
+
+def fmt_mem(n):
+    if n >= 1024**3: return f"{n/1024**3:.1f}G"
+    if n >= 1024**2: return f"{n/1024**2:.0f}M"
+    return f"{n/1024:.0f}K"
+
+def fmt_speed(n):
+    if n >= 1e6: return f"{n/1e6:.1f} MB/s"
+    if n >= 1e3: return f"{n/1e3:.0f} KB/s"
+    return f"{int(n)} B/s" if n else "0"
+
+def fmt_countdown(resets_at):
+    secs = int(resets_at - time.time())
+    if secs <= 0: return "即将刷新"
+    h, m = secs // 3600, (secs % 3600) // 60
+    if h >= 24:
+        d, rh = divmod(h, 24)
+        return f"{d}天{rh}小时后"
+    if h > 0: return f"{h}小时{m}分后"
+    return f"{m}分钟后"
+
+
+def get_lunar(d):
+    lu = LunarDate.fromSolarDate(d.year, d.month, d.day)
+    gz = STEMS[(lu.year-4)%10] + BRANCHES[(lu.year-4)%12]
+    return lu, LUNAR_MONTHS[lu.month], LUNAR_DAYS[lu.day], gz, ZODIAC[(lu.year-4)%12]
+
+
+def solar_term_text(d):
+    terms = SOLAR_TERMS_2026 if d.year == 2026 else []
+    cur = up = None
+    for m, day, name in terms:
+        td = date(d.year, m, day)
+        if td <= d: cur = (name, td)
+        elif up is None: up = (name, td)
+    if cur and (d - cur[1]).days == 0:
+        return f"今日{cur[0]}"
+    if up:
+        return f"{up[0]}还有{(up[1]-d).days}天"
+    return ""
+
+
+def build_calendar(today):
+    weeks = cal_mod.Calendar(firstweekday=0).monthdayscalendar(today.year, today.month)
+    out = []
+    for wk in weeks:
+        row = []
+        for i, dnum in enumerate(wk):
+            if dnum == 0:
+                row.append(None); continue
+            hol = HOLIDAYS.get((today.month, dnum))
+            try:
+                lu = LunarDate.fromSolarDate(today.year, today.month, dnum)
+                lstr = LUNAR_MONTHS[lu.month] if lu.day == 1 else LUNAR_DAYS[lu.day]
+                lhol = LUNAR_HOLIDAYS.get((lu.month, lu.day))
+            except Exception:
+                lstr, lhol = "", None
+            # 节气
+            term = next((n for (m,dd,n) in SOLAR_TERMS_2026 if m==today.month and dd==dnum), None)
+            sub = hol or lhol or term or lstr
+            row.append({
+                "d": dnum,
+                "l": sub,
+                "today": dnum == today.day,
+                "holiday": bool(hol or lhol or term),
+                "weekend": i >= 5,
+            })
+        out.append(row)
+    return out
+
+
+def prep_context(now, cache, cfg=None):
+    today = now.date()
+    lu, lmon, lday, gz, zod = get_lunar(today)
+
+    # ---- Home ----
+    wn = cache.get("weather_now") or {}
+    wd = cache.get("weather_daily") or []
+    today_wd = wd[0] if wd else {}
+    tmr_wd = wd[1] if len(wd) > 1 else {}
+    # 苹果提醒(Mac 推)+ Microsoft To Do(服务端拉)合并;两源独立,谁挂不影响谁。
+    reminders = (cache.get("reminders") or []) + (cache.get("reminders_mstodo") or [])
+    pending = [r for r in reminders if not r.get("completed")]
+    today_str = today.isoformat()
+    cutoff = (today + timedelta(days=14)).isoformat()
+    overdue, today_items, upcoming = [], [], []
+    for r in pending:
+        due = (r.get("dueDate") or "")[:10]
+        if not due:
+            upcoming.append({"title": r.get("title",""), "dt": ""})
+        elif due < today_str:
+            overdue.append({"title": r.get("title",""), "dt": due[5:].replace("-",".")})
+        elif due == today_str:
+            today_items.append({"title": r.get("title",""), "dt": ""})
+        elif due <= cutoff:
+            dd = date.fromisoformat(due)
+            delta = (dd - today).days
+            tag = "明天" if delta == 1 else (f"+{delta}天" if delta <= 7 else due[5:].replace("-","."))
+            upcoming.append({"title": r.get("title",""), "dt": tag})
+    overdue.sort(key=lambda x: x["dt"]); upcoming.sort(key=lambda x: x["dt"])
+
+    home = {
+        "date_md": now.strftime("%m/%d"),
+        "date_dot": now.strftime("%m.%d"),
+        "weekday": WEEKDAYS_CN[now.weekday()],
+        "lunar": f"{lmon}{lday}",
+        "ganzhi": f"{gz}{zod}年",
+        "term": solar_term_text(today),
+        "year": today.year, "month": today.month,
+        "weather": {
+            "city": cache.get("weather_city", ""),
+            "temp": wn.get("temp","--"), "cond": wn.get("text","--"),
+            "feels": wn.get("feelsLike","--"), "humidity": wn.get("humidity","--"),
+            "wind": f"{wn.get('windDir','')}{wn.get('windScale','')}级",
+            "today_range": f"{today_wd.get('tempMin','--')}–{today_wd.get('tempMax','--')}°" if today_wd else "--",
+            "tmr_range": f"{tmr_wd.get('tempMin','--')}–{tmr_wd.get('tempMax','--')}°" if tmr_wd else "--",
+            "tmr_cond": tmr_wd.get("textDay",""),
+        },
+        "calendar": build_calendar(today),
+        "reminders": {"overdue": overdue, "today": today_items,
+                      "upcoming": upcoming, "total": len(pending)},
+    }
+
+    # ---- AI ----
+    # ccusage 本机直采(ccusage_cli):cc/codex 的 daily 数组,本机日志直接读出
+    def _norm(d):
+        return {"date": d["date"], "totalTokens": d.get("totalTokens", 0),
+                "totalCost": d.get("totalCost", d.get("costUSD", 0))}
+    cc = (cache.get("ccusage") or {}).get("cc", {}).get("daily", [])
+    cx = [_norm(d) for d in (cache.get("ccusage") or {}).get("codex", {}).get("daily", [])]
+    cc_today = next((d for d in cc if d["date"]==today_str), None)
+    cx_today = next((d for d in cx if d["date"]==today_str), None)
+    s7 = (today - timedelta(days=7)).isoformat()
+    s30 = (today - timedelta(days=30)).isoformat()
+    cc7 = sum(d["totalTokens"] for d in cc if d["date"]>=s7)
+    cx7 = sum(d["totalTokens"] for d in cx if d["date"]>=s7)
+    cc30 = sum(d["totalTokens"] for d in cc if d["date"]>=s30)
+    cx30 = sum(d["totalTokens"] for d in cx if d["date"]>=s30)
+    ccall = sum(d["totalTokens"] for d in cc)
+    cxall = sum(d["totalTokens"] for d in cx)
+    rl = cache.get("rate_limits") or {}
+    five = rl.get("five_hour") or {}
+    week = rl.get("seven_day") or {}
+    cx_rl = cache.get("codex_rate_limits") or {}
+    cx_five = cx_rl.get("five_hour") or {}
+    cx_week = cx_rl.get("seven_day") or {}
+    # 7天柱状图
+    chart = []
+    days = [(today - timedelta(days=i)) for i in range(6,-1,-1)]
+    vals = []
+    for d in days:
+        ds = d.isoformat()
+        ccv = next((x["totalTokens"] for x in cc if x["date"]==ds), 0)
+        cxv = next((x["totalTokens"] for x in cx if x["date"]==ds), 0)
+        vals.append((ccv, cxv))
+    mx = max((a+b) for a,b in vals) or 1
+    for d,(ccv,cxv) in zip(days, vals):
+        chart.append({
+            "day": d.strftime("%d"),
+            "cc_h": round(ccv/mx*100), "cx_h": round(cxv/mx*100),
+            "val": fmt_tok(ccv+cxv) if (ccv+cxv)>0 else "",
+        })
+    ai = {
+        "five_pct": int(five.get("used_percentage") or 0),
+        "five_reset": fmt_countdown(five["resets_at"]) if five.get("resets_at") else "--",
+        "week_pct": int(week.get("used_percentage") or 0),
+        "week_reset": fmt_countdown(week["resets_at"]) if week.get("resets_at") else "--",
+        "today_cost": fmt_cost((cc_today["totalCost"] if cc_today else 0)+(cx_today["totalCost"] if cx_today else 0)),
+        "cc_cost": fmt_cost(cc_today["totalCost"]) if cc_today else "$0",
+        "cc_tok": fmt_tok(cc_today["totalTokens"]) if cc_today else "0",
+        "cx_cost": fmt_cost(cx_today["totalCost"]) if cx_today else "$0",
+        "cx_tok": fmt_tok(cx_today["totalTokens"]) if cx_today else "0",
+        "cx_five_pct": int(cx_five.get("used_percentage") or 0),
+        "cx_five_reset": fmt_countdown(cx_five["resets_at"]) if cx_five.get("resets_at") else "--",
+        "cx_week_pct": int(cx_week.get("used_percentage") or 0),
+        "cx_week_reset": fmt_countdown(cx_week["resets_at"]) if cx_week.get("resets_at") else "--",
+        "tok_7d": fmt_tok(cc7+cx7), "tok_30d": fmt_tok(cc30+cx30), "tok_all": fmt_tok(ccall+cxall),
+        "chart": chart,
+    }
+    cny = (cache.get("ccusage") or {}).get("customCostCNY") or {}
+    ai["custom_total"] = f"¥{cny.get('total_today', 0):.2f}" if cny.get("total_today") else "¥0"
+    ai["custom_name"] = cny.get("provider_name", "")
+
+    # ---- Device ----
+    def dev(d, fields=None):
+        if not d: return None
+        mt = d.get("mem_total",1) or 1
+        vols = [{"name": v["name"], "pct": v["pct"],
+                 "used": fmt_bytes(v["used"]), "total": fmt_bytes(v["total"])}
+                for v in d.get("disks",[])]
+        # 字段显示控制:fields 留空=全显示;否则按勾选过滤(cpu/mem/net/disk_io/vol:<挂载点>)
+        sel = set(fields or [])
+        all_on = not sel
+        if not all_on:
+            vols = [v for v in vols if f"vol:{v['name']}" in sel]
+        return {
+            "cpu": d.get("cpu_pct",0),
+            "mem": round(d.get("mem_used",0)/mt*100),
+            "mem_used": fmt_mem(d.get("mem_used",0)),
+            "mem_total": fmt_mem(mt),
+            "net_rx": fmt_speed(d.get("net_rx",0)), "net_tx": fmt_speed(d.get("net_tx",0)),
+            "disk_r": fmt_speed(d.get("disk_read",0)), "disk_w": fmt_speed(d.get("disk_write",0)),
+            "vols": vols,
+            "show": {"cpu": all_on or "cpu" in sel, "mem": all_on or "mem" in sel,
+                     "net": all_on or "net" in sel, "disk_io": all_on or "disk_io" in sel},
+        }
+
+    # 动态机器列表。数据 cache["devices_metrics"]={key: raw}(local/ssh 用 name 做 key,push 用 agent 上报的 id)。
+    # 配置 cfg.devices.machines 提供显示名(可自定义)与字段勾选;未配置的 push 设备自动采纳(默认用 hostname)。
+    devices_cfg = ((cfg or {}).get("devices", {}) or {}).get("machines", []) or []
+    metrics_map = cache.get("devices_metrics") or {}
+    machines = []
+    seen = set()
+    for mc in devices_cfg:
+        key = (mc.get("id") or "").strip() or (mc.get("name") or "").strip()
+        raw = metrics_map.get(key)
+        if raw is None and mc.get("name"):
+            key = (mc.get("name") or "").strip()
+            raw = metrics_map.get(key)
+        if raw is None:
+            continue
+        one = dev(raw, mc.get("fields"))
+        if one:
+            one["name"] = (mc.get("name") or key)
+            machines.append(one)
+            seen.add(key)
+    for key in sorted(metrics_map):                # 自动采纳未配置的设备(push 即插即显)
+        if key in seen:
+            continue
+        one = dev(metrics_map[key])
+        if one:
+            one["name"] = metrics_map[key].get("hostname") or key
+            machines.append(one)
+    device = {"machines": machines}
+
+    # ---- Printer ----
+    pr = cache.get("printer")
+    printer = None
+    if pr:
+        status_map = {"running": "打印中", "idle": "空闲", "finish": "打印完成",
+                      "failed": "打印失败", "pause": "已暂停", "prepare": "准备中",
+                      "slicing": "切片中", "offline": "离线"}
+        st = pr.get("status") or ""
+        state_text = status_map.get(st, st or "未知")
+        if not pr.get("online"):
+            state_text = "离线"
+        # 剩余时间：HA 的 remaining_time 单位是【小时】（如 7.25 = 7小时15分）
+        rm = pr.get("remaining_min")  # 实为小时
+        if rm is not None and rm > 0:
+            h = int(rm)
+            m = int(round((rm - h) * 60))
+            remaining_text = f"{h}小时{m}分" if h else f"{m}分钟"
+        else:
+            remaining_text = "--"
+        # 完成时刻：当前时间 + 剩余小时
+        eta_clock = "--"
+        if rm is not None and rm > 0:
+            eta_clock = (now + timedelta(hours=rm)).strftime("%H:%M")
+        # 文件名截断
+        task = pr.get("task") or "--"
+        printer = {
+            "online": pr.get("online", False),
+            "printing": st in ("running", "prepare", "slicing"),
+            "state_text": state_text,
+            "progress": pr.get("progress", 0),
+            "task": task,
+            "layer": pr.get("layer", "0"),
+            "total_layer": pr.get("total_layer", "0"),
+            "remaining_text": remaining_text,
+            "eta_clock": eta_clock,
+            "nozzle": pr.get("nozzle", "--"), "nozzle_t": pr.get("nozzle_t", "--"),
+            "bed": pr.get("bed", "--"), "bed_t": pr.get("bed_t", "--"),
+            "speed": {"standard": "标准", "silent": "静音", "sport": "运动", "ludicrous": "狂暴"}.get(pr.get("speed"), pr.get("speed","--")),
+            "weight": pr.get("weight", "--"),
+            "material": pr.get("material", "--"),
+            "cooling_fan": pr.get("cooling_fan", "0"),
+            "name": pr.get("printer_name", "A1"),
+        }
+
+    batt = cache.get("kindle_battery")
+    battery = {
+        "level": batt if batt is not None else "--",
+        "charging": cache.get("kindle_charging", False),
+        "has": batt is not None,
+    }
+
+    return {
+        "now": now.strftime("%m/%d %H:%M"),
+        "time_hm": now.strftime("%H:%M"),
+        "clock": now.strftime("%H:%M:%S"),
+        "battery": battery,
+        "home": home, "ai": ai, "device": device,
+        "ha": cache.get("ha") or {"cards": []},   # 采集失败/未配 → 空墙(诚实降级,该页隐藏)
+        "printer": printer,
+    }

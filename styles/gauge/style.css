@@ -1,0 +1,86 @@
+/* 风格 gauge —— 模拟仪表盘 / 墨水屏灰度 / 横屏 800x600
+   视觉方向:半圆指针表盘 + 圆角仪表面板 + 数字读数。圆形语言区别于其它矩形风格。
+   纪律:
+   1. sans 字体;读数 tabular;字号阶 10/12/15/20/30/46。
+   2. 纯灰度;表盘弧线 + 指针表达比例,数值仍以文本读数写出(bullet 原则)。
+   3. 0-100 类(配额/CPU/内存/分区/进度)与有界量(温度0-300/延迟0-300)用表盘;
+      无界量(速度/tokens/花费/温度名)用数字读数面板。
+   4. flex 排版,面板 overflow:hidden 防溢出;不用 position:absolute。
+   表盘弧长常数 GA = π·42 ≈ 131.9;指针角 = -90 + draw%·1.8。 */
+:root{
+  --ink:#000;
+  --ink2:#2f2f2f;
+  --ink3:#6c6c6c;
+  --ink4:#9a9a9a;
+  --line:#000;
+  --line2:#cccccc;
+  --track:#dadada;
+  --fill:#f2f2f2;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:800px;height:600px;background:#fff;}
+body{
+  font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  padding:12px 14px;
+  display:flex;flex-direction:column;
+}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+/* 斜线网点(柱状) */
+.hatch-a{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,#fff 2px,#fff 4px);}
+.hatch-b{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,#fff 1px,#fff 5px);}
+
+/* 仪表盘头部 */
+.cluster{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:11px;}
+.cluster .ttl{font-size:21px;font-weight:800;letter-spacing:-0.5px;}
+.cluster .ttl .chip{font-size:10px;font-weight:800;letter-spacing:1.5px;background:var(--ink);color:#fff;
+  padding:2px 8px;border-radius:3px;margin-right:10px;vertical-align:middle;text-transform:uppercase;}
+.cluster .meta{font-size:12px;color:var(--ink3);font-weight:600;}
+
+/* 主体 + 面板 */
+.main{flex:1;min-height:0;overflow:hidden;display:flex;gap:12px;}
+.main.vert{flex-direction:column;}
+.panel{border:1.5px solid var(--ink);border-radius:11px;padding:12px 14px;
+  display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;}
+.panel.soft{border-color:var(--line2);}
+
+/* 面板标牌 */
+.plate{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);
+  margin-bottom:10px;flex-shrink:0;display:flex;justify-content:space-between;align-items:baseline;}
+.plate .aux{letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink2);font-size:11px;}
+
+/* 表盘 */
+.gz{display:flex;flex-direction:column;align-items:center;min-width:0;}
+.gz svg{width:100%;height:auto;display:block;}
+.gz .gv{font-size:21px;font-weight:800;letter-spacing:-0.5px;line-height:1;margin-top:1px;}
+.gz .cap{font-size:11px;font-weight:700;color:var(--ink2);margin-top:3px;letter-spacing:0.5px;text-align:center;}
+.gz .sub{font-size:10px;color:var(--ink3);font-weight:600;text-align:center;}
+.gz-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;}
+
+/* 数字读数 */
+.read .l{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:3px;}
+.read .v{font-size:30px;font-weight:800;letter-spacing:-1px;line-height:0.95;}
+.read .v .u{font-size:13px;color:var(--ink3);font-weight:600;}
+.read .sub{font-size:11px;color:var(--ink3);font-weight:600;margin-top:3px;}
+.n-hero{font-size:46px;font-weight:800;letter-spacing:-2px;line-height:0.85;}
+.n-lg{font-size:20px;font-weight:800;}
+
+/* 线性小条(分区/备用)+ 文本数值 */
+.bd{margin-bottom:9px;}
+.bd:last-child{margin-bottom:0;}
+.bd .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+.bd .k{font-size:12px;font-weight:700;color:var(--ink2);}
+.bd .v{font-size:12px;font-weight:700;}
+.bar{height:9px;background:var(--track);border-radius:5px;overflow:hidden;}
+.bar > i{display:block;height:100%;background:var(--ink);border-radius:5px;}
+
+.divln{height:1px;background:var(--line2);margin:10px 0;flex-shrink:0;}
+
+/* 页脚 */
+.foot{flex-shrink:0;margin-top:10px;padding-top:7px;border-top:2px solid var(--ink);
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;color:var(--ink3);font-weight:600;letter-spacing:0.5px;}
+.foot b{color:var(--ink2);font-weight:700;}

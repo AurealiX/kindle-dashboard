@@ -1,0 +1,72 @@
+/* 风格 minimal —— 瑞士国际主义极简 / 墨水屏灰度 / 横屏 800x600
+   视觉方向:大留白、超大数字、只用发丝线分隔、近乎无装饰,层级全靠字号与空白。
+   纪律:
+   1. 干净 sans;严格字号阶 10/13/16/22/34/56/104。
+   2. 纯灰度;不用填充块,只用 1px 发丝线;层级靠尺寸 + 留白 + 字重。
+   3. 进度用极细线(3px)+ 文本数值(bullet 原则)。
+   4. flex 排版防溢出,不用 position:absolute。 */
+:root{
+  --ink:#000;
+  --ink2:#444;
+  --ink3:#8a8a8a;
+  --ink4:#b4b4b4;
+  --line:#000;
+  --line2:#dcdcdc;
+  --track:#e6e6e6;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:800px;height:600px;background:#fff;}
+body{
+  font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  padding:30px 34px 22px;
+  display:flex;flex-direction:column;
+}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+/* 柱状分段(图表用) */
+.hatch-a{background:#000;}
+.hatch-b{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,#fff 1px,#fff 4px);}
+
+/* 页眉:极简,一条发丝线 */
+.head{flex-shrink:0;display:flex;justify-content:space-between;align-items:baseline;
+  padding-bottom:10px;border-bottom:1px solid var(--line);margin-bottom:24px;}
+.head .ttl{font-size:22px;font-weight:600;letter-spacing:-0.5px;}
+.head .idx{font-size:11px;font-weight:600;letter-spacing:3px;color:var(--ink3);text-transform:uppercase;}
+.head .meta{font-size:12px;color:var(--ink3);font-weight:500;}
+
+/* 主体 */
+.main{flex:1;min-height:0;overflow:hidden;display:flex;gap:40px;}
+.main.vert{flex-direction:column;gap:0;}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0;}
+
+/* 极小标签 */
+.lab{font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--ink3);margin-bottom:14px;flex-shrink:0;}
+.lab .aux{color:var(--ink2);letter-spacing:0;margin-left:8px;font-weight:500;text-transform:none;}
+
+/* 数字阶 */
+.n-mega{font-size:104px;font-weight:600;line-height:0.82;letter-spacing:-5px;}
+.n-hero{font-size:56px;font-weight:600;line-height:0.85;letter-spacing:-2px;}
+.n-xl{font-size:34px;font-weight:600;letter-spacing:-1px;}
+.n-lg{font-size:22px;font-weight:600;letter-spacing:-0.5px;}
+
+/* 发丝分隔 */
+.hr{height:1px;background:var(--line2);margin:22px 0;flex-shrink:0;}
+
+/* 极细进度线 + 文本数值 */
+.metric{margin-bottom:20px;}
+.metric:last-child{margin-bottom:0;}
+.metric .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;}
+.metric .k{font-size:13px;font-weight:500;color:var(--ink2);}
+.metric .v{font-size:18px;font-weight:600;}
+.metric .v small{font-size:11px;color:var(--ink3);font-weight:500;}
+.line{height:3px;background:var(--track);overflow:hidden;}
+.line > i{display:block;height:100%;background:var(--ink);}
+
+/* 页脚:极简一行 */
+.foot{flex-shrink:0;margin-top:20px;padding-top:10px;border-top:1px solid var(--line2);
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;color:var(--ink3);font-weight:500;letter-spacing:0.5px;}
+.foot .tnum{color:var(--ink2);font-weight:600;}

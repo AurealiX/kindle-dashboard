@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.col-l{width:332px;flex-shrink:0;}
+.col-r{flex:1;min-width:0;}
+.wx-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.wx-cond{font-size:16px;font-weight:700;margin-top:5px;letter-spacing:0.5px;}
+.wx-side{font-size:11px;color:var(--ink3);font-weight:700;text-align:right;line-height:1.8;white-space:nowrap;letter-spacing:0.5px;}
+.wx-range{display:flex;gap:18px;margin-top:10px;font-size:13px;font-weight:700;}
+.wx-range .lo{color:var(--ink3);font-weight:400;}
+.todo{flex:1;min-height:0;overflow:hidden;}
+.grp{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--ink3);margin:9px 0 3px;}
+.grp:first-child{margin-top:0;}
+.ti{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px dotted #d8d8d8;}
+.ti .mk{font-weight:700;flex-shrink:0;font-size:11px;}
+.ti .tx{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ti .dt{font-size:11px;color:var(--ink3);margin-left:auto;flex-shrink:0;}
+.cal{width:100%;border-collapse:collapse;table-layout:fixed;}
+.cal th{font-size:10px;color:var(--ink3);font-weight:700;padding:2px 0 6px;border-bottom:1px solid var(--ink);}
+.cal td{text-align:center;vertical-align:middle;border:1px solid #d8d8d8;height:31px;}
+.cal .d{font-size:14px;font-weight:700;line-height:1;}
+.cal .l{font-size:8px;color:var(--ink4);margin-top:1px;}
+.cal td.today{border:1.5px solid var(--ink);}
+.cal td.today .d{font-weight:700;}
+.cal td.we .d{color:var(--ink3);}
+.cal td.hol .l{color:var(--ink2);font-weight:700;}
+</style></head><body>
+<div class="sheet"><div class="drawing">
+  <div class="mast"><div><div class="pj">KINDLE-DASH · HOME</div><div class="ti">首页 / {{ home.date_md }}</div></div>
+    <div class="meta">{{ home.weekday }} · 农历{{ home.lunar }}<br>{{ home.ganzhi }}</div></div>
+  <div class="main">
+    <div class="col col-r">
+      <div class="fig"><span class="tag">FIG.1</span><span class="cap">天气观测</span><span class="ln"></span></div>
+      <div class="wx-top">
+        <div><div class="n-hero tnum">{{ home.weather.temp }}°</div><div class="wx-cond">{{ home.weather.cond }}</div></div>
+        <div class="wx-side">体感 {{ home.weather.feels }}°<br>湿度 {{ home.weather.humidity }}%<br>{{ home.weather.wind }}</div>
+      </div>
+      <div class="wx-range"><span>今 {{ home.weather.today_range }}</span><span>明 {{ home.weather.tmr_range }} <span class="lo">{{ home.weather.tmr_cond }}</span></span></div>
+      {% if home.term %}<div style="margin-top:8px;font-size:12px;font-weight:700;letter-spacing:0.5px;">◷ {{ home.term }}</div>{% endif %}
+      <div class="fig mt"><span class="tag">FIG.2</span><span class="cap">提醒清单</span><span class="ln"></span><span class="aux">{{ home.reminders.total }} ITEMS</span></div>
+      <div class="todo">
+      {% if home.reminders.overdue %}<div class="grp"># 已过期</div>{% for r in home.reminders.overdue[:2] %}<div class="ti"><span class="mk">▲</span><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+      {% if home.reminders.today %}<div class="grp"># 今天</div>{% for r in home.reminders.today[:2] %}<div class="ti"><span class="mk">□</span><span class="tx">{{ r.title }}</span></div>{% endfor %}{% endif %}
+      {% if home.reminders.upcoming %}<div class="grp"># 近期</div>{% for r in home.reminders.upcoming[:3] %}<div class="ti"><span class="mk">□</span><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+      {% if not home.reminders.overdue and not home.reminders.today and not home.reminders.upcoming %}<div class="ti"><span class="tx" style="color:var(--ink3);">暂无近期提醒</span></div>{% endif %}
+      </div>
+    </div>
+    <div class="vrule"></div>
+    <div class="col col-l">
+      <div class="fig"><span class="tag">SHT.M</span><span class="cap">{{ home.year }}-{{ "%02d"|format(home.month) }} 月历</span><span class="ln"></span></div>
+      <table class="cal">
+        <tr><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th></tr>
+        {% for week in home.calendar %}<tr>{% for c in week %}{% if c %}<td class="{% if c.today %}today{% endif %} {% if c.weekend %}we{% endif %} {% if c.holiday %}hol{% endif %}"><div class="d tnum">{{ c.d }}</div><div class="l">{{ c.l }}</div></td>{% else %}<td></td>{% endif %}{% endfor %}</tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  <div class="titleblock">
+    <div class="cell grow"><div class="l">PROJECT</div><div class="v">KINDLE DASHBOARD</div></div>
+    <div class="cell"><div class="l">UPDATED</div><div class="v tnum">{{ time_hm }}</div></div>
+    <div class="cell"><div class="l">{% if battery.charging %}CHARGING{% else %}BATTERY{% endif %}</div><div class="v tnum">{{ battery.level }}%</div></div>
+    <div class="cell"><div class="l">SHEET</div><div class="v">1 / 5</div></div>
+  </div>
+</div></div>
+</body></html>

@@ -1,0 +1,102 @@
+# ============================================================
+# Kindle Dashboard 配置示例
+# ============================================================
+# 用法:复制本文件为 config.yaml,按需修改。
+#   cp config.example.yaml config.yaml
+#
+# config.yaml 含你的密钥,已被 .gitignore 排除,只存本地、不上传。
+# 大多数人用设置网页(:port/setup)填写更方便,不必手改本文件。
+#
+# 「配置即页面」:填了某模块的关键字段,对应页面才显示;没填自动隐藏。
+# 字段定义的唯一真相源:server/config/schema.py
+# ============================================================
+
+server:
+  port: 8585
+  timezone: Asia/Shanghai
+  page_interval: 20          # Kindle 每隔几秒翻页
+  kindle_model: base         # Kindle 机型:base/pw34/pw5/pw12/scribe/custom(按机型出原生分辨率不糊)
+  render_width: 800          # 仅 kindle_model=custom 时手填(横屏分辨率=竖屏宽高对调)
+  render_height: 600
+  render_rotate: 270         # 渲染后旋转成竖屏写墨水屏(270=顺时针默认;90=逆时针;0=不转)
+  render_grayscale: true
+  render_interval: 30        # 多久重渲染一次看板图(秒;刷新时钟与已变数据,与采集解耦)
+
+# 天气(和风天气 QWeather)——填了 key+location 才出天气
+# 推荐用设置网页:填好 host/key 保存后,直接搜城市名选择,自动匹配编码、自动填城市名。
+weather:
+  provider: qweather
+  host: ""                   # QWeather 控制台分配的专属域名 xxx.re.qweatherapi.com
+  key: ""                    # API Key(密钥)
+  location: "101010100"      # 城市 LocationID(北京示例);用设置网页搜城市自动填
+  location_name: ""          # 城市显示名(看板天气标题用);设置网页选城市时自动写入,留空会自动反查
+  interval: 600              # 采集间隔(秒);天气变化慢,建议 ≥600(也省 API 限额)
+
+# 提醒事项(苹果)——需一台 Mac 跑采集脚本推送,见安装文档
+reminders:
+  enabled: false
+  interval: 300              # 上报间隔(秒);launchd 定时器,改后需重跑 enable_reminders.sh
+
+# Microsoft To Do(可选)——设置网页点【连接】登录微软账号即可,与苹果提醒合并显示
+mstodo:
+  enabled: false             # 由登录端点写入,勿手改
+  client_id: "14d82eec-204b-4c2f-b7e8-296a70dab67e"   # 内置公开客户端;有自有 Azure 应用可换
+  include_flagged_emails: false   # 是否包含 Outlook「标记的邮件」列表
+  interval: 600              # 采集间隔(秒);待办变化慢,建议 ≥600
+
+# AI 用量(Claude / Codex)——本机直接读 ccusage,无中间服务
+# 安装时选「启用 AI 用量」会自动装 Node + ccusage 并把 enabled 置 true
+ai_usage:
+  enabled: false
+  custom_rate: 1.0           # 官方价 × 倍率 = 实际花费,默认 1.0
+  interval: 300              # 本机 ccusage 采集间隔(秒);解析日志约 10s,建议 ≥300
+  codex_quota_interval: 600  # Codex 额度上报(秒);launchd 定时器,改后重跑 enable_quota.sh
+  claude_quota_interval: 300 # Claude 额度上报节流(秒);statusLine 推送
+
+# Home Assistant ——填了地址+令牌,打印机等设备页才能拉数据
+home_assistant:
+  url: ""                    # http://192.168.x.x:8123
+  token: ""                  # 长期访问令牌(密钥)
+  interval: 60               # 采集间隔(秒);拉 HA 实体状态(打印机/设备页共用)
+
+# 3D 打印机(经 HA 拉取,需先配好上面的 HA)
+printer:
+  enabled: false
+  entity_prefix: ""          # HA 中该打印机实体公共前缀,如 a1_xxxx
+
+# 智能家居实体墙(经 Home Assistant)——选了实体才出这一页
+# 推荐用设置网页搜实体添加;手填示例(去掉注释填进 entities):
+ha_page:
+  entities: []
+  #   - entity_id: light.living_room
+  #     name: 客厅灯        # 留空用 HA 友好名
+  #     icon: ""            # 留空用 HA 自带图标
+
+# 设备监控 ——被监控机 Windows/Linux/Mac 均可。本机直读;远程每台二选一(推/拉)
+# platform: auto/linux/macos/windows —— 采集脚本按它分;local/push 可自检,ssh 建议明确选
+devices:
+  machines: []
+  interval: 30               # 服务端采集间隔(秒;本机直读/SSH拉)。push 设备的上报间隔由目标机 agent 自己定
+  # 示例(去掉注释填进 machines):
+  #   - name: 这台Mac
+  #     mode: local           # 本机直读,既不装 agent 也不用 SSH
+  #     platform: auto
+  #   - name: NAS
+  #     mode: push            # 目标机装 agent 上报,不交密码;Windows 友好
+  #     platform: linux
+  #     host: 192.168.x.x
+  #   - name: 老服务器
+  #     mode: ssh             # 服务端 SSH 进去读,目标机零安装
+  #     platform: linux
+  #     host: 192.168.x.x
+  #     ssh_user: user
+  #     ssh_port: 22
+  #     ssh_password: ""      # 只存本地
+
+# 页面与风格
+display:
+  pages: []                  # 留空=按已配数据源自动启用;或显式列 [home, ai, device]
+  style_mode: fixed          # fixed=固定一套;daily_random=每日随机
+  style: style_a
+  style_rotation: [style_a]  # 每日随机时从这些里选
+# 注:各数据源的采集间隔已分别放在各自配置段的 interval 字段(见上),不再集中于此。

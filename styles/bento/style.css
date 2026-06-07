@@ -1,0 +1,85 @@
+/* 风格 bento —— 便当格子 / 圆角卡片 / 墨水屏灰度 / 横屏 800x600
+   视觉方向:每块信息一个圆角柔灰卡片,模块化便当布局,大号圆润数字。
+   纪律:
+   1. sans-serif 友好字体;严格字号阶 11/13/16/20/26/40/64。
+   2. 纯灰度;卡片用柔灰填充分层(非描边),层级靠填充深浅 + 字号。
+   3. 每个进度都以文本写出数值(bullet 原则);胶囊圆角进度条。
+   4. grid 布局,每张卡 overflow:hidden 防溢出;无 position:absolute。 */
+:root{
+  --ink:#000;
+  --ink2:#2e2e2e;
+  --ink3:#6e6e6e;
+  --ink4:#9a9a9a;
+  --card:#f1f1f1;       /* 普通卡片 */
+  --card2:#e6e6e6;      /* 次级/嵌套块 */
+  --hero:#dedede;       /* 强调卡片 */
+  --track:#d4d4d4;
+  --line:#d8d8d8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:800px;height:600px;background:#fff;}
+body{
+  font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  padding:14px 16px;
+  display:flex;flex-direction:column;
+}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+/* 斜线填充(柱状图分段) */
+.hatch-a{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,#fff 2px,#fff 4px);}
+.hatch-b{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,#fff 1px,#fff 5px);}
+
+/* 页眉:轻量胶囊条 */
+.head{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:12px;padding:0 4px;}
+.head .ttl{font-size:22px;font-weight:800;letter-spacing:-0.5px;}
+.head .ttl .sub{font-size:13px;font-weight:600;color:var(--ink3);margin-left:10px;}
+.head .meta{font-size:13px;color:var(--ink3);font-weight:600;}
+
+/* 便当网格主体 */
+.bento{flex:1;min-height:0;display:grid;gap:12px;overflow:hidden;}
+
+/* 卡片 */
+.card{background:var(--card);border-radius:16px;padding:15px 17px;
+  display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;}
+.card.hero{background:var(--hero);}
+.card.plain{background:#f7f7f7;}
+
+/* 卡片小标题 */
+.lab{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:var(--ink3);margin-bottom:10px;flex-shrink:0;
+  display:flex;justify-content:space-between;align-items:baseline;}
+.lab .aux{letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink2);font-size:12px;}
+
+/* 数字阶 */
+.n-hero{font-size:64px;font-weight:800;line-height:0.85;letter-spacing:-2px;}
+.n-xl{font-size:40px;font-weight:800;letter-spacing:-1px;line-height:0.9;}
+.n-lg{font-size:26px;font-weight:800;letter-spacing:-0.5px;}
+.n-md{font-size:20px;font-weight:700;}
+
+/* 胶囊进度条 + 文本数值 */
+.kv{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+.kv .k{font-size:13px;font-weight:700;color:var(--ink2);}
+.kv .v{font-size:15px;font-weight:800;}
+.kv .v small{font-size:11px;color:var(--ink3);font-weight:600;}
+.pill{height:10px;background:var(--track);border-radius:5px;overflow:hidden;}
+.pill > i{display:block;height:100%;background:var(--ink);border-radius:5px;}
+.pill.thin{height:7px;}
+.barrow{margin-bottom:13px;}
+.barrow:last-child{margin-bottom:0;}
+
+/* 内嵌小块(便当里的小格) */
+.mini{background:var(--card2);border-radius:12px;padding:11px 13px;
+  display:flex;flex-direction:column;justify-content:center;min-width:0;overflow:hidden;}
+.mini .l{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;}
+
+.spacer{flex:1;min-height:0;}
+.divline{height:1px;background:var(--line);margin:11px 0;flex-shrink:0;}
+
+/* 页脚 */
+.foot{flex-shrink:0;margin-top:12px;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0 6px;font-size:11px;color:var(--ink4);font-weight:600;letter-spacing:0.5px;}
+.foot b{color:var(--ink3);font-weight:700;}

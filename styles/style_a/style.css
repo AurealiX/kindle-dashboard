@@ -1,0 +1,90 @@
+/* 方案 A — Editorial 杂志风 / 墨水屏灰度 / 横屏 800x600
+   设计纪律(v2)：
+   1. 横屏专属布局，内容垂直方向也要铺满，禁止底部大块留白
+   2. 墨水屏少用大面积实心黑——大色块/柱状图一律用斜线(hatch)填充
+   3. 数据少的页面不硬撑多列，用大元素均衡铺满
+   4. 6 寸小屏可读优先：字号、间距要够，列数克制 */
+:root{
+  --ink:#000;
+  --ink2:#3a3a3a;
+  --ink3:#767676;
+  --ink4:#a8a8a8;
+  --line:#000;
+  --line2:#d0d0d0;
+  --fill:#efefef;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:800px;height:600px;background:#fff;}
+body{
+  /* 跨平台中文字体 fallback:Linux=Noto, macOS=苹方, Windows=雅黑 */
+  font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  padding:22px 30px 16px;
+  display:flex;flex-direction:column;
+}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+/* 斜线填充——替代实心黑色大块 */
+.hatch{background-image:repeating-linear-gradient(45deg,#000 0,#000 1.5px,#fff 1.5px,#fff 4.5px);}
+.hatch-dense{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,#fff 2px,#fff 4px);}
+.hatch-sparse{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,#fff 1px,#fff 6px);}
+
+/* 页眉：editorial 报头，横跨顶部 */
+.masthead{display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:2.5px solid var(--line);padding-bottom:9px;margin-bottom:14px;flex-shrink:0;}
+.masthead .title{font-size:28px;font-weight:800;letter-spacing:-0.5px;}
+.masthead .kicker{font-size:12px;font-weight:600;color:var(--ink3);
+  text-transform:uppercase;letter-spacing:3px;}
+.masthead .meta{font-size:14px;color:var(--ink2);font-weight:500;text-align:right;line-height:1.45;}
+
+/* 主体：可横向分栏，也可纵向分块 */
+.main{flex:1;min-height:0;display:flex;gap:26px;overflow:hidden;}
+.main.vert{flex-direction:column;gap:0;}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0;}
+.vrule{width:1px;background:var(--line2);flex-shrink:0;}
+.hrule{height:1px;background:var(--line2);flex-shrink:0;}
+
+/* 区块标题 */
+.section-label{font-size:11px;font-weight:700;letter-spacing:2.5px;
+  text-transform:uppercase;color:var(--ink3);margin-bottom:9px;
+  display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.section-label .aux{letter-spacing:0;font-weight:600;color:var(--ink2);
+  text-transform:none;font-size:12px;}
+
+.rule{height:1px;background:var(--line2);margin:13px 0;}
+
+/* 数字强调 */
+.stat-hero{font-size:62px;font-weight:800;line-height:0.9;letter-spacing:-2px;}
+.stat-big{font-size:34px;font-weight:800;letter-spacing:-1px;}
+.stat-med{font-size:22px;font-weight:700;}
+.label{font-size:13px;color:var(--ink3);font-weight:600;}
+.label-sm{font-size:11px;color:var(--ink3);font-weight:600;
+  letter-spacing:1px;text-transform:uppercase;}
+
+/* 卡片：默认描边而非填充黑底 */
+.card{border:1.5px solid var(--ink);border-radius:2px;padding:12px 14px;}
+.card-soft{background:var(--fill);border-radius:2px;padding:12px 14px;}
+
+/* 进度条：槽底浅灰，填充实心(细条，墨水屏可读) */
+.bar{height:12px;background:var(--fill);border-radius:1px;overflow:hidden;position:relative;}
+.bar > i{display:block;height:100%;background:var(--ink);}
+.bar.thin{height:8px;}
+
+/* 柱状图：两段都用斜线区分，不用实心黑块 */
+.chart{display:flex;align-items:flex-end;gap:12px;}
+.chart .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+.chart .col .bars{width:62%;display:flex;flex-direction:column;justify-content:flex-end;height:100%;}
+.chart .col .seg-a{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,#fff 2px,#fff 4px);}
+.chart .col .seg-b{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,#fff 1px,#fff 5px);}
+.chart .col .v{font-size:10px;color:var(--ink3);margin-bottom:3px;font-weight:600;}
+.chart .col .x{font-size:11px;color:var(--ink2);margin-top:5px;font-weight:600;}
+
+/* 页脚：横跨底部 */
+.footer{flex-shrink:0;margin-top:12px;
+  display:flex;justify-content:space-between;align-items:center;
+  border-top:1px solid var(--line2);padding-top:8px;
+  font-size:11px;color:var(--ink4);font-weight:600;letter-spacing:1px;}
+
+.row{display:flex;align-items:center;}
+.between{justify-content:space-between;}

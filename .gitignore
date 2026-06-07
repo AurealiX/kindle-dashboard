@@ -1,0 +1,46 @@
+# ── 凭据安全(最高优先级,绝不入库)──────────────────
+# 用户的真实配置(含天气 Key / HA Token / SSH 账号等),只存本地
+config.yaml
+config.yml
+config.local.*
+*.local.yaml
+*.local.yml
+.env
+.env.*
+*.token
+*.secret
+auth.json
+secrets/
+# HA 真实数据预览图(含家庭实时状态,只本地看,绝不入库)
+ha-预览-真实数据.png
+*真实数据*.png
+
+# 运行时数据(渲染产物、缓存、上报数据)
+data/
+installers/macos/quota/quota.conf   # enable_quota.sh 生成的本机上报地址/节流,运行时产物
+previews/        # 风格预览图(本地查看用,preview_style.py 产物归档)
+*.png
+!docs/**/*.png
+!styles/**/preview/*.png
+cache.json
+*.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+npm-debug.log*
+.node/                       # install.sh 下载的本地 Node 运行时(几十 MB,运行时产物)
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
+*.swp
+
+# 内部开发文档(含真实调试 IP / 内部决策,不进公开仓库;本地保留供 AI 协作)
+CLAUDE_TASK_QUEUE.md

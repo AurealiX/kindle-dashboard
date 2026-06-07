@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.grid{flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:0;align-content:flex-start;overflow:hidden;}
+.dev{flex:1 1 360px;min-width:330px;padding:0 18px;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+.dev:nth-child(odd){padding-left:0;}
+.dev:nth-child(even){border-left:1px solid var(--line2);padding-right:0;}
+.dhead{display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:2px solid var(--ink);padding-bottom:5px;margin-bottom:10px;}
+.dhead .nm{font-size:19px;font-weight:800;letter-spacing:-0.5px;}
+.dhead .st{font-size:10px;color:var(--ink3);font-weight:700;letter-spacing:0.5px;}
+.io{font-size:11px;color:var(--ink2);font-weight:600;margin:6px 0;display:flex;flex-direction:column;gap:3px;}
+.io b{font-weight:800;color:var(--ink);}
+.vlab{font-size:9px;color:var(--ink3);font-weight:800;letter-spacing:1.5px;text-transform:uppercase;margin:8px 0 5px;}
+.vol .top .k{font-size:11px;}.vol .top .v{font-size:10px;color:var(--ink3);font-weight:600;}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:14px;font-weight:700;}
+</style></head><body>
+<div class="plate"><div class="name">设备简报<span class="sm">DEVICES</span></div><div class="ed">{{ now }}</div></div>
+<div class="dateline"><span>系统监控 · METRICS</span><span>{% if device.machines %}{{ device.machines|length }} 台在线{% else %}暂无数据{% endif %}</span></div>
+<div class="main">
+{% if device.machines %}
+  <div class="grid">
+  {% for m in device.machines %}
+    <div class="dev">
+      <div class="dhead"><span class="nm">{{ m.name }}</span><span class="st tnum">{{ m.mem_used }} / {{ m.mem_total }}</span></div>
+      {% if m.show.cpu %}<div class="bd"><div class="top"><span class="k">CPU</span><span class="v tnum">{{ m.cpu }}%</span></div><div class="bar thin"><i class="hatch-a" style="width:{{ m.cpu }}%"></i></div></div>{% endif %}
+      {% if m.show.mem %}<div class="bd"><div class="top"><span class="k">内存</span><span class="v tnum">{{ m.mem }}%</span></div><div class="bar thin"><i class="hatch-a" style="width:{{ m.mem }}%"></i></div></div>{% endif %}
+      {% if m.show.net or m.show.disk_io %}<div class="io">{% if m.show.net %}<span>网络 <b class="tnum">↓{{ m.net_rx }} ↑{{ m.net_tx }}</b></span>{% endif %}{% if m.show.disk_io %}<span>磁盘 <b class="tnum">↓{{ m.disk_r }} ↑{{ m.disk_w }}</b></span>{% endif %}</div>{% endif %}
+      {% if m.vols %}<div class="vlab">存储空间</div>
+        {% for v in m.vols %}<div class="bd vol" style="margin-bottom:6px;"><div class="top"><span class="k">{{ v.name }}</span><span class="v tnum">{{ v.used }} / {{ v.total }} · {{ v.pct }}%</span></div><div class="bar thin"><i class="hatch-a" style="width:{{ v.pct }}%"></i></div></div>{% endfor %}
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+{% else %}
+  <div class="empty">暂无设备数据</div>
+{% endif %}
+</div>
+<div class="folio"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>设备 · A4</span></div>
+</body></html>

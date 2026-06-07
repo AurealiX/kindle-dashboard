@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.grid{display:flex;flex-wrap:wrap;gap:14px;align-content:flex-start;height:100%;overflow:hidden;}
+.card{flex:1 1 320px;min-width:300px;border:1.5px solid var(--ink);padding:12px 14px;display:flex;flex-direction:column;}
+.chead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dashed var(--ink3);padding-bottom:7px;margin-bottom:10px;}
+.chead .nm{font-size:19px;font-weight:700;letter-spacing:-0.5px;}
+.chead .st{font-size:11px;color:var(--ink3);}
+.io{font-size:11px;color:var(--ink2);margin:6px 0;display:flex;flex-direction:column;gap:4px;}
+.vol{margin-top:6px;}
+.vol .kv .k{font-size:12px;}.vol .kv .v{font-size:11px;color:var(--ink3);font-weight:400;}
+.vlabel{font-size:10px;color:var(--ink3);font-weight:700;letter-spacing:1px;margin:8px 0 5px;}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:14px;}
+</style></head><body>
+<div class="win">
+  <div class="titlebar"><span class="path"><span class="b">kindle://</span>devices</span><span class="clk tnum">{{ now }}</span></div>
+  <div class="main">
+    <div class="pane" style="flex:1;">
+    {% if device.machines %}
+      <div class="grid">
+      {% for m in device.machines %}
+        <div class="card">
+          <div class="chead"><span class="nm">{{ m.name }}</span><span class="st tnum">{{ m.mem_used }}/{{ m.mem_total }}</span></div>
+          {% if m.show.cpu %}<div class="barrow"><div class="kv"><span class="k">CPU</span><span class="v tnum">{{ m.cpu }}%</span></div><div class="bar thin"><i style="width:{{ m.cpu }}%"></i></div></div>{% endif %}
+          {% if m.show.mem %}<div class="barrow"><div class="kv"><span class="k">MEM</span><span class="v tnum">{{ m.mem }}%</span></div><div class="bar thin"><i style="width:{{ m.mem }}%"></i></div></div>{% endif %}
+          {% if m.show.net or m.show.disk_io %}<div class="io">{% if m.show.net %}<span class="tnum">NET  ↓{{ m.net_rx }}  ↑{{ m.net_tx }}</span>{% endif %}{% if m.show.disk_io %}<span class="tnum">DISK ↓{{ m.disk_r }}  ↑{{ m.disk_w }}</span>{% endif %}</div>{% endif %}
+          {% if m.vols %}<div class="vlabel">VOLUMES</div>
+            {% for v in m.vols %}<div class="vol"><div class="kv"><span class="k">{{ v.name }}</span><span class="v tnum">{{ v.used }}/{{ v.total }} · {{ v.pct }}%</span></div><div class="bar thin"><i style="width:{{ v.pct }}%"></i></div></div>{% endfor %}
+          {% endif %}
+        </div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty">~ 暂无设备数据</div>
+    {% endif %}
+    </div>
+  </div>
+  <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span></span><span class="seg"><span class="dim">PAGE</span> 4/5</span></div>
+</div>
+</body></html>

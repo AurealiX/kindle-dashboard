@@ -1,0 +1,390 @@
+"""配置 schema —— 配置层的唯一真相源。
+
+一处定义,四处复用:
+1. 校验   —— validate(config) 检查类型/必填。
+2. 默认值 —— default_config() 生成全默认配置。
+3. 设置网页 —— to_json() 把 schema 给前端,自动生成分模块表单(配置即页面)。
+4. 模块启用 —— enabled_modules(config) 按关键字段是否填写,判断哪些数据源/页面开。
+
+铁律对应:
+- 零硬编码:所有用户数据(IP/密钥/城市/设备)都是这里的字段,代码别处不写死。
+- 配置即页面:模块的 `enable_when` 决定"填了才出对应页",没填自动隐藏。
+- 诚实降级:校验失败给出明确错误,不静默;缺非必填项用默认值兜底。
+
+凭据安全:secret=True 的字段在生成 example / 给前端回显时**绝不带真实值**。
+"""
+from dataclasses import dataclass, field, asdict
+from typing import Any, Optional
+
+
+# ---- 字段类型 ----
+# str / int / bool / float / enum(配 options) / str_list / module_list(配 item_fields)
+
+@dataclass
+class Field:
+    key: str
+    label: str                      # 设置网页显示的中文标签
+    type: str = "str"
+    default: Any = ""
+    required: bool = False          # 模块启用时是否必填
+    secret: bool = False            # 凭据,不回显真实值、不写进 example
+    help: str = ""                  # 表单下方说明
+    options: Optional[list] = None  # type=enum 时的可选值 [(value, label), ...]
+    item_fields: Optional[list] = None  # type=module_list 时,每项的子字段
+    hidden: bool = False            # True=不在设置网页单独渲染输入框(由配套控件维护,如城市名由城市选择器写入)
+
+
+@dataclass
+class Section:
+    key: str
+    label: str                      # 模块标题
+    help: str = ""
+    fields: list = field(default_factory=list)
+    # 该模块"算启用(用户有意图)"的条件:列出的字段全部非空才算启用。
+    # 设计原则:enable_when 放"足以表达启用意图"的字段,**不要放需要单独报错提示的凭据**。
+    #   - 模块有非凭据的意图字段(如 HA 的 url 地址)→ 用它;凭据(token)靠 required 校验缺失。
+    #   - 模块只有凭据能表达意图(如天气的 key)→ 才把凭据放进来,此时缺凭据=静默隐藏(诚实降级)。
+    # 用途区分:enable_when 驱动 validate(有意图才查必填)与"配置即页面"的页面显示。
+    enable_when: list = field(default_factory=list)
+    # 该模块对应的页面 key(contract.PAGES 里的);None=非页面模块(如 server)。
+    page: Optional[str] = None
+
+
+# ============================================================
+# Kindle 机型 → 横屏渲染分辨率(唯一数据源)
+# ============================================================
+# 竖屏物理分辨率转横屏(宽高对调)填入。基准画布是横屏 800×600(4:3),
+# 主流机型几乎都是 3:4,等比放大即可(见 docs/multi-resolution-spec.md)。
+# 元组:(value, label, render_width 横, render_height 横)
+KINDLE_MODELS = [
+    ("base",   "Kindle 基础版 6\"(竖 600×800)",                          800,  600),
+    ("pw34",   "Paperwhite 3/4 · Voyage(竖 1072×1448)",                 1448, 1072),
+    ("pw5",    "Paperwhite 5 · 6.8\"(竖 1236×1648)",                    1648, 1236),
+    ("pw12",   "Paperwhite 12代/7\" · Oasis · Colorsoft(竖 1264×1680)",  1680, 1264),
+    ("scribe", "Scribe 10.2\"(竖 1860×2480)",                           2480, 1860),
+    ("custom", "自定义(下方手填横屏分辨率)",                               0,    0),
+]
+_MODEL_RES = {m[0]: (m[2], m[3]) for m in KINDLE_MODELS if m[0] != "custom"}
+
+
+def resolve_render_size(server_cfg: dict) -> tuple:
+    """按机型预设解析最终横屏输出分辨率。
+    选了具体机型 → 用预设;选「自定义」或未知 → 用手填 render_width/height;
+    缺省一律回落基准 800×600(诚实降级,绝不崩)。"""
+    s = server_cfg or {}
+    model = s.get("kindle_model", "base")
+    if model in _MODEL_RES:
+        return _MODEL_RES[model]
+    try:
+        w = int(s.get("render_width", 800) or 800)
+        h = int(s.get("render_height", 600) or 600)
+    except (TypeError, ValueError):
+        w, h = 800, 600
+    return (w if w > 0 else 800, h if h > 0 else 600)
+
+
+# ============================================================
+# Schema 定义
+# ============================================================
+SCHEMA: list = [
+    Section(
+        key="server", label="服务",
+        help="服务基础设置,一般用默认值即可。",
+        fields=[
+            Field("port", "端口", "int", 8585),
+            Field("timezone", "时区", "str", "Asia/Shanghai"),
+            Field("page_interval", "轮播间隔(秒)", "int", 20,
+                  help="Kindle 每隔多少秒切换到下一页。"),
+            Field("kindle_model", "Kindle 机型", "enum", "base",
+                  options=[(m[0], m[1], m[2], m[3]) for m in KINDLE_MODELS],
+                  help="选你的 Kindle 型号,服务端按原生分辨率出清晰图(不糊)。"
+                       "6 寸基础版选第一个即可;不确定型号查机器背面或「设置→设备信息」。"
+                       "选「自定义」才需手填下方横屏分辨率。"),
+            Field("render_width", "渲染宽(横屏)", "int", 800,
+                  help="仅「自定义」机型需填:你的 Kindle 横屏分辨率(= 竖屏宽高对调,"
+                       "如竖 1236×1648 填 1648)。选了具体机型则此值由机型自动决定。"),
+            Field("render_height", "渲染高(横屏)", "int", 600,
+                  help="仅「自定义」机型需填:横屏高(= 竖屏宽,如竖 1236×1648 填 1236)。"),
+            Field("render_rotate", "旋转角度", "int", 270,
+                  help="横屏渲染后旋转成竖屏写墨水屏。270=顺时针(横屏顶边朝屏幕右侧,默认);90=逆时针;0=不旋转。"),
+            Field("render_grayscale", "灰度输出", "bool", True),
+            Field("render_interval", "出图刷新间隔(秒)", "int", 30,
+                  help="多久重渲染一次看板图(刷新时钟与已变数据)。与采集解耦,慢数据源不影响它。"),
+        ],
+    ),
+
+    Section(
+        key="weather", label="天气", page="home",
+        help="和风天气 QWeather 免费 API。填了 Key 才显示天气。",
+        enable_when=["key", "location"],
+        fields=[
+            Field("provider", "服务商", "enum", "qweather",
+                  options=[("qweather", "和风天气 QWeather")]),
+            Field("host", "API Host", "str", "",
+                  help="QWeather 控制台分配的专属域名,如 xxx.re.qweatherapi.com。"),
+            Field("key", "API Key", "str", "", required=True, secret=True),
+            Field("location", "城市", "city", "101010100", required=True,
+                  help="搜城市名选择即可(自动匹配编码);也可在「高级」手填 LocationID。"),
+            Field("location_name", "城市名", "str", "", hidden=True,
+                  help="城市显示名,由城市选择器写入(GeoAPI 反查),用于看板天气标题。"),
+            Field("interval", "采集间隔(秒)", "int", 600,
+                  help="多久拉一次天气。变化慢,建议 ≥600(也省 API 限额)。"),
+        ],
+    ),
+
+    Section(
+        key="reminders", label="提醒事项", page="home",
+        help="把本机「提醒事项」App(含 iPhone 经 iCloud 同步过来的)显示到看板。仅 macOS。"
+             "启用/停用通过下方命令一键完成(会请求一次系统授权),无需重装。",
+        enable_when=["enabled"],
+        fields=[
+            # enabled 不在网页直接开关:由 enable_reminders.sh / disable_reminders.sh 命令管理,
+            # 避免"网页点了开、但本机 agent 没装"的假启用。设置页改为显示可复制命令(见 setup.html 特例渲染)。
+            Field("enabled", "启用", "bool", False, hidden=True),
+            Field("interval", "上报间隔(秒)", "int", 300,
+                  help="Mac 提醒同步多久推一次。它是 launchd 定时器(非热重载):改后需重跑 enable_reminders.sh 才生效。"),
+        ],
+    ),
+
+    Section(
+        key="mstodo", label="Microsoft To Do", page="home",
+        help="可选。把微软 To Do 待办显示到看板,与苹果提醒事项合并。点下方【连接】用你的微软账号登录一次即可,"
+             "无需申请任何 API/密钥。仅显示未完成任务。",
+        enable_when=["enabled"],
+        fields=[
+            # enabled 由登录端点写入(成功置 true、断开置 false),不在网页手填。
+            Field("enabled", "启用", "bool", False, hidden=True),
+            # client_id 有内置默认(公开客户端,免注册);进阶用户改 config.yaml 换自有应用。隐藏避免干扰普通用户。
+            Field("client_id", "应用 ID", "str", "14d82eec-204b-4c2f-b7e8-296a70dab67e", hidden=True),
+            Field("include_flagged_emails", "包含『标记的邮件』列表", "bool", False,
+                  help="Outlook 标记邮件会生成一个任务列表,默认不混入提醒事项。"),
+            Field("interval", "采集间隔(秒)", "int", 600,
+                  help="多久拉一次微软待办。待办变化慢,建议 ≥600。"),
+        ],
+    ),
+
+    Section(
+        key="ai_usage", label="AI 用量", page="ai",
+        help="Claude / Codex 的用量与花费。本机直接读 ccusage(npm 包,读本地日志),"
+             "安装时选「启用 AI 用量」会自动装好;无需任何中间服务。",
+        enable_when=["enabled"],
+        fields=[
+            Field("enabled", "启用", "bool", False),
+            Field("custom_rate", "自定义价格倍率", "float", 1.0,
+                  help="官方价 × 倍率 = 实际花费(中转站对账用),默认 1.0。"),
+            Field("interval", "采集间隔(秒)", "int", 300,
+                  help="本机 ccusage 多久采一次。每次解析本机日志约 10 秒,建议 ≥300。"),
+            Field("codex_quota_interval", "Codex 额度上报间隔(秒)", "int", 600,
+                  help="Codex 5h/周额度上报间隔。launchd 定时器(非热重载):改后重跑 enable_quota.sh。"),
+            Field("claude_quota_interval", "Claude 额度上报节流(秒)", "int", 300,
+                  help="Claude 额度走 Claude Code statusLine 推送(push),此值为节流间隔(非热重载)。"),
+        ],
+    ),
+
+    Section(
+        key="home_assistant", label="Home Assistant", page=None,
+        help="智能家居中枢。填了地址+令牌,打印机等设备页才能拉到数据。",
+        enable_when=["url"],  # 填了地址=想启用;token 缺失由 required 校验报错(见 enable_when 设计原则)
+        fields=[
+            Field("url", "地址", "str", "",
+                  help="如 http://192.168.x.x:8123"),
+            Field("token", "长期访问令牌", "str", "", required=True, secret=True,
+                  help="HA 用户资料页生成的 Long-Lived Access Token。"),
+            Field("interval", "采集间隔(秒)", "int", 60,
+                  help="多久拉一次 HA 实体状态(打印机/设备页共用这一次拉取)。"),
+        ],
+    ),
+
+    Section(
+        key="printer", label="3D 打印机", page="printer",
+        help="经 Home Assistant 拉取(需先配好上面的 HA)。当前适配拓竹,后续抽象为通用实体。",
+        enable_when=["enabled", "entity_prefix"],
+        fields=[
+            Field("enabled", "启用", "bool", False),
+            Field("entity_prefix", "实体前缀", "str", "",
+                  help="HA 中该打印机实体的公共前缀,如 a1_xxxx。"),
+        ],
+    ),
+
+    Section(
+        key="ha_page", label="智能家居", page="ha",
+        help="把 Home Assistant 里你关心的实体显示成一面卡片墙(需先配好上面的 Home Assistant 地址+令牌)。",
+        enable_when=["entities"],   # 选了至少一个实体才启用;list 特判见 enabled_modules
+        fields=[
+            Field("entities", "实体卡片", "module_list", default=[],
+                  item_fields=[
+                      Field("entity_id", "实体", "ha_entity", "", required=True,
+                            help="从 HA 搜索选择,自动带出名称和图标。"),
+                      Field("name", "显示名", "str", "",
+                            help="留空=用 HA 的友好名(friendly_name)。"),
+                      Field("icon", "图标", "str", "", hidden=True,
+                            help="mdi:xxx;留空=用 HA 实体自带图标。由实体选择器写入,高级可手填。"),
+                  ]),
+        ],
+    ),
+
+    Section(
+        key="devices", label="设备监控", page="device",
+        help="要监控的机器(Windows/Linux/Mac 均可)。本机直读;远程机器每台二选一:推(装 agent,不交密码)或 拉(填 SSH)。",
+        enable_when=[],  # 有任意一台设备即启用,见 enabled_modules 特判
+        fields=[
+            Field("machines", "机器列表", "module_list", default=[],
+                  item_fields=[
+                      Field("name", "名称", "str", "", required=True,
+                            help="显示名,可自定义(如 客厅NAS)。push 设备默认用 hostname,可改。"),
+                      # 关联键:push=agent 上报的 id/hostname;ssh 可留空(用 host);local 留空。
+                      Field("id", "标识", "str", "",
+                            help="数据关联用。push 由 agent 上报;local/ssh 一般留空。"),
+                      # 要显示的指标条:cpu/mem/net/disk_io/vol:<挂载点>。留空=全显示。
+                      # 可勾选项由设置网页按设备实际上报内容动态生成。
+                      Field("fields", "显示项", "str_list", default=[],
+                            help="勾选要显示的指标,留空=全显示。"),
+                      Field("mode", "采集方式", "enum", "local",
+                            options=[("local", "本机直读"),
+                                     ("push", "推(目标机装 agent)"),
+                                     ("ssh", "拉(服务端 SSH 进去读)")]),
+                      # 被监控机的系统 —— 采集脚本按它分(linux/macos/windows)。
+                      # local/push 可自检;ssh 选 auto 则服务端先探测,建议明确选。
+                      Field("platform", "系统", "enum", "auto",
+                            options=[("auto", "自动识别"), ("linux", "Linux"),
+                                     ("macos", "macOS"), ("windows", "Windows")]),
+                      Field("host", "地址", "str", "",
+                            help="push/ssh 模式填,如 192.168.x.x"),
+                      Field("ssh_user", "SSH 用户", "str", "", help="仅 ssh 模式"),
+                      Field("ssh_port", "SSH 端口", "int", 22, help="仅 ssh 模式"),
+                      Field("ssh_password", "SSH 密码", "str", "", secret=True,
+                            help="仅 ssh 模式;只存本地"),
+                  ]),
+            Field("interval", "采集间隔(秒)", "int", 30,
+                  help="服务端多久采一次设备指标(本机直读 / SSH 拉)。想更实时就调小。"
+                       "注:push 设备的上报间隔由目标机 agent 自己定,不受此值控制。"),
+        ],
+    ),
+
+    Section(
+        key="display", label="页面与风格", page=None,
+        help="启用哪些页、轮播顺序、用哪套风格。留空=按数据源自动决定。",
+        fields=[
+            Field("pages", "启用页面", "str_list", default=[],
+                  help="留空则按已配置的数据源自动启用。可选:home/ai/device/ha/printer。"),
+            Field("style_mode", "风格模式", "enum", "fixed",
+                  options=[("fixed", "固定一套"), ("daily_random", "每日随机")]),
+            Field("style", "风格", "str", "style_a"),
+            Field("style_rotation", "随机池", "str_list", default=["style_a"],
+                  help="style_mode=每日随机 时,从这些风格里按日期选。"),
+        ],
+    ),
+]
+
+
+# ============================================================
+# 派生工具
+# ============================================================
+_SECTIONS = {s.key: s for s in SCHEMA}
+
+
+def default_config() -> dict:
+    """从 schema 生成全默认配置(secret 字段为空)。"""
+    cfg = {}
+    for sec in SCHEMA:
+        d = {}
+        for f in sec.fields:
+            if f.type == "module_list":
+                d[f.key] = []           # 列表默认空
+            elif f.secret:
+                d[f.key] = ""           # 凭据默认空
+            else:
+                d[f.key] = f.default
+        cfg[sec.key] = d
+    return cfg
+
+
+def _is_filled(v) -> bool:
+    if v is None:
+        return False
+    if isinstance(v, str):
+        return v.strip() != ""
+    if isinstance(v, (list, dict)):
+        return len(v) > 0
+    if isinstance(v, bool):
+        return v
+    return True  # 数字等
+
+
+def enabled_modules(config: dict) -> dict:
+    """判断每个模块是否启用(配置即页面的核心)。
+    返回 {section_key: bool}。"""
+    out = {}
+    for sec in SCHEMA:
+        secd = config.get(sec.key, {}) or {}
+        if sec.key == "devices":
+            out[sec.key] = len(secd.get("machines", []) or []) > 0
+            continue
+        if sec.key == "ha_page":            # 同 devices:列表非空即启用(选了实体才出 ha 页)
+            out[sec.key] = len(secd.get("entities", []) or []) > 0
+            continue
+        if not sec.enable_when:
+            out[sec.key] = True     # 无启用条件的模块(server/display)恒启用
+            continue
+        out[sec.key] = all(_is_filled(secd.get(k)) for k in sec.enable_when)
+    return out
+
+
+def active_pages(config: dict) -> list:
+    """最终要渲染/轮播的页面列表(顺序敏感)。
+    display.pages 非空 → 用它(但仍过滤掉数据源没配的页);
+    为空 → 按已启用的数据源自动推导。"""
+    enabled = enabled_modules(config)
+    # 数据源模块 → 页面 的映射(server/home_assistant/display 不直接对应页)
+    page_ready = {
+        "home": enabled.get("weather") or enabled.get("reminders") or enabled.get("mstodo"),
+        "ai": enabled.get("ai_usage"),
+        "device": enabled.get("devices"),
+        "ha": enabled.get("ha_page"),
+        "printer": enabled.get("printer"),
+    }
+    default_order = ["home", "ai", "device", "ha", "printer"]
+    chosen = config.get("display", {}).get("pages") or []
+    order = chosen if chosen else default_order
+    return [p for p in order if page_ready.get(p)]
+
+
+def validate(config: dict) -> list:
+    """校验配置,返回错误信息列表(空=通过)。
+    只对【已启用】的模块查必填项,未启用模块不强求填写(诚实降级)。"""
+    errors = []
+    enabled = enabled_modules(config)
+    for sec in SCHEMA:
+        secd = config.get(sec.key, {}) or {}
+        for f in sec.fields:
+            if f.type == "module_list":
+                for i, item in enumerate(secd.get(f.key, []) or []):
+                    for sub in (f.item_fields or []):
+                        if sub.required and not _is_filled(item.get(sub.key)):
+                            errors.append(f"{sec.label}[{i}].{sub.label} 必填")
+                continue
+            v = secd.get(f.key)
+            if v is not None and not _check_type(v, f.type):
+                errors.append(f"{sec.label}.{f.label} 类型应为 {f.type}")
+            if f.required and enabled.get(sec.key) and not _is_filled(v):
+                errors.append(f"{sec.label}.{f.label} 必填")
+    return errors
+
+
+def _check_type(v, t) -> bool:
+    if t in ("str", "enum", "city", "ha_entity"):
+        return isinstance(v, str)
+    if t == "int":
+        return isinstance(v, int) and not isinstance(v, bool)
+    if t == "float":
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+    if t == "bool":
+        return isinstance(v, bool)
+    if t == "str_list":
+        return isinstance(v, list) and all(isinstance(x, str) for x in v)
+    return True
+
+
+def to_json() -> list:
+    """给设置网页:schema 的可序列化表达(不含任何用户数据)。"""
+    return [asdict(s) for s in SCHEMA]

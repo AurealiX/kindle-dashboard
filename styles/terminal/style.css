@@ -1,0 +1,89 @@
+/* 风格 terminal —— TUI / 命令行仪表盘 / 墨水屏灰度 / 横屏 800x600
+   视觉方向:等宽字体 + 窗口边框 + 反白标题条 + 方块进度条 + ASCII 分隔线。
+   纪律:
+   1. 全等宽,中文走 CJK mono fallback;严格字号阶 11/13/16/22/34/52。
+   2. 纯灰度;层级靠粗细/方块/虚线,不靠颜色。大块黑只用在细标题条(非整屏)。
+   3. 每个数值条都把数字以文本写出(bullet-chart 原则),不靠长度独自表意。
+   4. 无圆角(终端方正感);进度条方块、表格虚线。 */
+:root{
+  --ink:#000;
+  --ink2:#333;
+  --ink3:#6b6b6b;
+  --ink4:#9a9a9a;
+  --line:#000;
+  --line2:#cfcfcf;
+  --track:#e2e2e2;
+  --fill:#f0f0f0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:800px;height:600px;background:#fff;}
+body{
+  font-family:'DejaVu Sans Mono','Noto Sans Mono CJK SC','Noto Sans CJK SC',
+              'Noto Sans CJK SC','PingFang SC','Microsoft YaHei',monospace;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  padding:12px;
+  display:flex;flex-direction:column;
+  line-height:1.25;
+}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+/* 斜线填充(柱状图分段用,替代实心黑大块) */
+.hatch-a{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,#fff 2px,#fff 4px);}
+.hatch-b{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,#fff 1px,#fff 5px);}
+
+/* 终端窗口:整屏一个 2px 边框 */
+.win{flex:1;min-height:0;border:2px solid var(--ink);
+  display:flex;flex-direction:column;overflow:hidden;}
+
+/* 反白标题条 */
+.titlebar{flex-shrink:0;background:var(--ink);color:#fff;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:7px 12px;font-size:13px;letter-spacing:0.5px;}
+.titlebar .path{font-weight:700;}
+.titlebar .path .b{opacity:0.55;}
+.titlebar .clk{font-weight:700;letter-spacing:1px;}
+
+/* 主体 */
+.main{flex:1;min-height:0;overflow:hidden;display:flex;gap:0;}
+.main.vert{flex-direction:column;}
+.pane{display:flex;flex-direction:column;min-height:0;min-width:0;padding:14px;}
+.pane + .pane{border-left:2px solid var(--ink);}
+.vsplit{border-top:2px solid var(--ink);}
+
+/* 区块标题 [ LABEL ] */
+.sec{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--ink2);
+  margin-bottom:10px;flex-shrink:0;display:flex;justify-content:space-between;align-items:baseline;}
+.sec .br{color:var(--ink4);}
+.sec .aux{font-size:11px;color:var(--ink3);font-weight:400;letter-spacing:0;}
+.sec.mt{margin-top:14px;}
+
+/* 虚线分隔(ASCII 感) */
+.dash{border-top:1px dashed var(--ink3);margin:12px 0;flex-shrink:0;}
+
+/* 方块进度条:轨道浅灰、填充实心、方正;数值另以文本写出 */
+.kv{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
+.kv .k{font-size:13px;font-weight:700;color:var(--ink2);}
+.kv .v{font-size:15px;font-weight:700;}
+.kv .v small{font-size:11px;color:var(--ink3);font-weight:400;}
+.bar{height:14px;background:var(--track);overflow:hidden;}
+.bar > i{display:block;height:100%;background:var(--ink);}
+.bar.thin{height:9px;}
+.barrow{margin-bottom:12px;}
+.barrow:last-child{margin-bottom:0;}
+
+/* 大数字 */
+.huge{font-size:52px;font-weight:700;line-height:0.9;letter-spacing:-1px;}
+.big{font-size:34px;font-weight:700;letter-spacing:-0.5px;}
+.med{font-size:22px;font-weight:700;}
+
+/* 终端式标签(方括号) */
+.tag{display:inline-block;border:1.5px solid var(--ink);padding:2px 9px;
+  font-size:12px;font-weight:700;letter-spacing:1px;}
+
+/* 页脚状态栏:反白 */
+.statusbar{flex-shrink:0;margin-top:0;background:var(--ink);color:#fff;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 12px;font-size:11px;letter-spacing:0.5px;}
+.statusbar .seg{display:flex;gap:6px;align-items:center;}
+.statusbar .dim{opacity:0.6;}

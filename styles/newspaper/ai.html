@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.col-l{width:316px;flex-shrink:0;display:flex;flex-direction:column;}
+.col-r{flex:1;min-width:0;display:flex;flex-direction:column;}
+.cost{margin-top:auto;border-top:2px solid var(--ink);padding-top:8px;}
+.cost .row{display:flex;justify-content:space-between;align-items:baseline;}
+.cost .row + .row{margin-top:5px;}
+.cost .row .l{font-size:11px;color:var(--ink3);font-weight:700;letter-spacing:1px;}
+.tok{display:flex;gap:0;border-top:1px solid var(--line2);border-bottom:1px solid var(--line2);}
+.tok .c{flex:1;text-align:center;padding:8px 4px;}
+.tok .c + .c{border-left:1px solid var(--line2);}
+.tok .c .l{font-size:9px;color:var(--ink3);font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+.chart-wrap{flex:1;min-height:0;display:flex;flex-direction:column;}
+.chart{flex:1;min-height:0;display:flex;align-items:flex-end;gap:9px;border-bottom:1.5px solid var(--ink);}
+.chart .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;padding:0;border:none;}
+.chart .col .val{font-size:9px;color:var(--ink3);font-weight:600;margin-bottom:3px;}
+.chart .col .bars{width:62%;display:flex;flex-direction:column;justify-content:flex-end;height:100%;}
+.chart .col .x{font-size:10px;color:var(--ink2);margin-top:4px;font-weight:700;}
+.legend{font-size:10px;color:var(--ink2);font-weight:600;display:flex;gap:14px;margin-top:7px;}
+.legend i{display:inline-block;width:13px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
+</style></head><body>
+<div class="plate"><div class="name">用量公报<span class="sm">AI USAGE</span></div><div class="ed">{{ now }}</div></div>
+<div class="dateline"><span>CLAUDE CODE · CODEX · CCUSAGE</span><span>今日官方 {{ ai.today_cost }}</span></div>
+<div class="main">
+  <div class="col col-l">
+    <div class="kick">Claude 配额</div>
+    <div class="bd"><div class="top"><span class="k">5 小时</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.five_pct }}%"></i></div></div>
+    <div class="bd"><div class="top"><span class="k">周额度</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.week_pct }}%"></i></div></div>
+    <div class="kick mt">Codex 配额</div>
+    <div class="bd"><div class="top"><span class="k">5 小时</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.cx_five_pct }}%"></i></div></div>
+    <div class="bd"><div class="top"><span class="k">周额度</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+    <div class="cost">
+      <div class="row"><span class="l">今日官方</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
+      <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}自定义{% endif %}</span><span class="n-md tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
+    </div>
+  </div>
+  <div class="col col-r">
+    <div class="kick">Tokens 累计</div>
+    <div class="tok">
+      <div class="c"><div class="l">近 7 天</div><div class="n-lg tnum">{{ ai.tok_7d }}</div></div>
+      <div class="c"><div class="l">近 30 天</div><div class="n-lg tnum">{{ ai.tok_30d }}</div></div>
+      <div class="c"><div class="l">累计</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
+    </div>
+    <div class="kick mt">近 7 天趋势<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+    <div class="chart-wrap">
+      <div class="chart">
+      {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+      </div>
+      <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
+    </div>
+  </div>
+</div>
+<div class="folio"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>AI 用量 · A2</span></div>
+</body></html>

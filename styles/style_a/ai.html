@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.col-l{width:330px;flex-shrink:0;display:flex;flex-direction:column;}
+.col-r{flex:1;min-width:0;}
+.quota{margin-bottom:12px;}
+.quota .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
+.quota .qname{font-size:15px;font-weight:700;}
+.quota .qright{text-align:right;}
+.quota .qpct{font-size:22px;font-weight:800;}
+.quota .qreset{font-size:11px;color:var(--ink3);font-weight:600;margin-left:8px;}
+.tok3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.tok3 .c{padding:12px 14px;}
+.tok3 .c .label-sm{margin-bottom:5px;}
+.tok3 .c .v{font-size:25px;font-weight:800;}
+.chart-wrap{flex:1;min-height:0;display:flex;flex-direction:column;}
+.chart{flex:1;min-height:0;}
+.legend{font-size:12px;color:var(--ink2);font-weight:600;display:flex;gap:18px;align-items:center;}
+.legend i{display:inline-block;width:16px;height:10px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
+.cost-bottom{border-top:2px solid var(--ink);padding-top:12px;margin-top:auto;}
+.cost-row{display:flex;align-items:flex-end;justify-content:space-between;}
+.cost-row .lbl{font-size:13px;color:var(--ink3);font-weight:600;letter-spacing:1px;}
+</style></head><body>
+<div class="masthead">
+  <div><div class="kicker">仪表盘 · AI 用量</div><div class="title">AI 用量</div></div>
+  <div class="meta">{{ now }}</div>
+</div>
+<div class="main">
+  <div class="col col-l">
+    <div>
+      <div class="section-label">Claude 配额</div>
+      <div class="quota"><div class="top"><span class="qname">5 小时额度</span><span class="qright"><span class="qpct tnum">{{ ai.five_pct }}%</span><span class="qreset">{{ ai.five_reset }}</span></span></div>
+        <div class="bar"><i style="width:{{ ai.five_pct }}%"></i></div></div>
+      <div class="quota"><div class="top"><span class="qname">周额度</span><span class="qright"><span class="qpct tnum">{{ ai.week_pct }}%</span><span class="qreset">{{ ai.week_reset }}</span></span></div>
+        <div class="bar"><i style="width:{{ ai.week_pct }}%"></i></div></div>
+      <div class="rule"></div>
+      <div class="section-label">Codex 配额</div>
+      <div class="quota"><div class="top"><span class="qname">5 小时额度</span><span class="qright"><span class="qpct tnum">{{ ai.cx_five_pct }}%</span><span class="qreset">{{ ai.cx_five_reset }}</span></span></div>
+        <div class="bar"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
+      <div class="quota"><div class="top"><span class="qname">周额度</span><span class="qright"><span class="qpct tnum">{{ ai.cx_week_pct }}%</span><span class="qreset">{{ ai.cx_week_reset }}</span></span></div>
+        <div class="bar"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+    </div>
+    <div class="cost-bottom">
+      <div class="cost-row"><span class="lbl">今日官方</span><span class="stat-big tnum">{{ ai.today_cost }}</span></div>
+      <div class="cost-row" style="margin-top:6px;"><span class="lbl">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}自定义{% endif %}</span><span class="stat-med tnum">{{ ai.custom_total }}</span></div>
+    </div>
+  </div>
+  <div class="vrule"></div>
+  <div class="col col-r">
+    <div class="section-label">用量统计 · TOKENS</div>
+    <div class="tok3">
+      <div class="c card"><div class="label-sm">近 7 天</div><div class="v tnum">{{ ai.tok_7d }}</div></div>
+      <div class="c card"><div class="label-sm">近 30 天</div><div class="v tnum">{{ ai.tok_30d }}</div></div>
+      <div class="c card"><div class="label-sm">累计</div><div class="v tnum">{{ ai.tok_all }}</div></div>
+    </div>
+    <div class="rule"></div>
+    <div class="section-label">近 7 天趋势</div>
+    <div class="chart-wrap">
+      <div class="chart">
+      {% for c in ai.chart %}<div class="col"><div class="v tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="seg-b" style="flex:{{ c.cx_h }}"></div><div class="seg-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+      </div>
+      <div class="legend" style="margin-top:8px;"><span><i class="hatch-dense"></i>Claude Code</span><span><i class="hatch-sparse"></i>Codex</span></div>
+    </div>
+  </div>
+</div>
+<div class="footer"><span>更新于 {{ time_hm }}</span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}{{ battery.level }}%</span><span>2 / 5</span></div>
+</body></html>

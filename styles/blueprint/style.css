@@ -1,0 +1,98 @@
+/* 风格 blueprint —— 工程蓝图(灰度版) / 横屏 800x600
+   视觉方向:方格底纹 + 双线图框 + 发丝边面板 + 标注/量取式数值 + 工程标题栏页脚。
+   纪律:
+   1. 等宽技术字体;严格字号阶 10/12/15/20/30/48。
+   2. 纯灰度;方格底纹用浅灰发丝线,层级靠线宽 + 字号 + 网点填充,不用颜色。
+   3. 量规(gauge)带刻度,数值以文本标注(bullet 原则);网点填充代替实心黑。
+   4. 双线图框 + 工程标题栏页脚;不用 position:absolute,靠 flex 排版。 */
+:root{
+  --ink:#000;
+  --ink2:#2b2b2b;
+  --ink3:#666;
+  --ink4:#949494;
+  --grid:#e7e7e7;     /* 方格底纹 */
+  --grid2:#d6d6d6;    /* 粗格 */
+  --hair:#000;        /* 发丝线 */
+  --track:#ededed;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:800px;height:600px;}
+body{
+  font-family:'DejaVu Sans Mono','Noto Sans Mono CJK SC','Noto Sans CJK SC',
+              'PingFang SC','Microsoft YaHei',monospace;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  padding:10px;
+  display:flex;flex-direction:column;
+  background-color:#fff;
+  background-image:
+    repeating-linear-gradient(0deg,var(--grid2) 0 1px,transparent 1px 100px),
+    repeating-linear-gradient(90deg,var(--grid2) 0 1px,transparent 1px 100px),
+    repeating-linear-gradient(0deg,var(--grid) 0 1px,transparent 1px 20px),
+    repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px 20px);
+}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+/* 网点填充(量规/柱状,替代实心黑) */
+.dots{background-image:radial-gradient(#000 1px,transparent 1.2px);background-size:4px 4px;}
+.hatch-a{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,transparent 2px,transparent 4px);}
+.hatch-b{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,transparent 1px,transparent 5px);}
+
+/* 双线图框 */
+.sheet{flex:1;min-height:0;border:2px solid var(--ink);padding:4px;
+  display:flex;flex-direction:column;background:transparent;}
+.drawing{flex:1;min-height:0;border:1px solid var(--ink);
+  display:flex;flex-direction:column;overflow:hidden;}
+
+/* 图头 */
+.mast{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid var(--ink);padding:7px 12px;}
+.mast .pj{font-size:10px;letter-spacing:2px;color:var(--ink3);font-weight:700;}
+.mast .ti{font-size:19px;font-weight:700;letter-spacing:0.5px;}
+.mast .meta{font-size:11px;color:var(--ink3);text-align:right;line-height:1.5;letter-spacing:0.5px;}
+
+/* 主体 */
+.main{flex:1;min-height:0;overflow:hidden;display:flex;padding:12px;gap:12px;}
+.main.vert{flex-direction:column;}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0;}
+.vrule{width:1px;background:var(--ink);flex-shrink:0;opacity:0.25;}
+
+/* FIG 标注:[TAG] ───────── */
+.fig{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-shrink:0;}
+.fig .tag{border:1px solid var(--ink);padding:1px 7px;font-size:10px;font-weight:700;letter-spacing:1.5px;white-space:nowrap;}
+.fig .cap{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--ink2);white-space:nowrap;}
+.fig .ln{flex:1;height:1px;background:var(--ink);opacity:0.5;}
+.fig .aux{font-size:10px;color:var(--ink3);letter-spacing:0.5px;white-space:nowrap;}
+.fig.mt{margin-top:14px;}
+
+/* 数字阶 */
+.n-hero{font-size:48px;font-weight:700;line-height:0.85;letter-spacing:-1px;}
+.n-xl{font-size:30px;font-weight:700;letter-spacing:-0.5px;}
+.n-lg{font-size:20px;font-weight:700;}
+
+/* 量规 gauge:发丝外框 + 刻度 + 网点填充 + 文本数值 */
+.kv{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
+.kv .k{font-size:12px;font-weight:700;color:var(--ink2);letter-spacing:0.5px;}
+.kv .v{font-size:14px;font-weight:700;}
+.kv .v small{font-size:10px;color:var(--ink3);font-weight:400;}
+.gauge{height:15px;border:1px solid var(--ink);overflow:hidden;
+  background-image:repeating-linear-gradient(90deg,var(--ink4) 0 1px,transparent 1px 10%);background-color:#fff;}
+.gauge > i{display:block;height:100%;border-right:1px solid var(--ink);}
+.gauge.thin{height:10px;}
+.barrow{margin-bottom:12px;}
+.barrow:last-child{margin-bottom:0;}
+
+/* 标注式键值(尺寸线感) */
+.dim{display:flex;justify-content:space-between;align-items:baseline;
+  padding:7px 0;border-bottom:1px dotted var(--ink3);}
+.dim .k{font-size:12px;color:var(--ink3);font-weight:700;letter-spacing:0.5px;}
+.dim .v{font-size:14px;font-weight:700;}
+
+/* 工程标题栏(页脚) */
+.titleblock{flex-shrink:0;display:flex;border-top:1px solid var(--ink);}
+.titleblock .cell{padding:6px 10px;border-left:1px solid var(--ink);
+  display:flex;flex-direction:column;justify-content:center;}
+.titleblock .cell:first-child{border-left:none;}
+.titleblock .cell .l{font-size:8px;letter-spacing:1.5px;color:var(--ink3);font-weight:700;}
+.titleblock .cell .v{font-size:12px;font-weight:700;letter-spacing:0.5px;}
+.titleblock .grow{flex:1;}

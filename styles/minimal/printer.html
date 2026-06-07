@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.col-l{width:320px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;}
+.col-r{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;}
+.prog{font-size:128px;font-weight:600;letter-spacing:-6px;line-height:0.8;}
+.pline{height:3px;background:var(--track);margin:18px 0 14px;overflow:hidden;}
+.pline > i{display:block;height:100%;background:var(--ink);}
+.fname{font-size:17px;font-weight:600;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.sub{font-size:13px;color:var(--ink3);font-weight:500;margin-top:10px;}
+.temps{display:flex;gap:56px;}
+.temps .c .l{font-size:10px;color:var(--ink3);font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;}
+.temps .c .v{font-size:50px;font-weight:600;letter-spacing:-2px;line-height:0.85;}
+.temps .c .v .u{font-size:16px;color:var(--ink3);font-weight:500;}
+.temps .c .t{font-size:12px;color:var(--ink3);font-weight:500;margin-top:6px;}
+.det{margin-top:26px;}
+.det .row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line2);}
+.det .row .k{font-size:13px;color:var(--ink3);font-weight:500;}
+.det .row .v{font-size:15px;font-weight:600;}
+.idle{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.idle .big{font-size:48px;font-weight:600;color:var(--ink);margin-bottom:14px;letter-spacing:-1px;}
+</style></head><body>
+<div class="head"><div class="ttl">3D 打印</div><div class="meta tnum">{% if printer %}{{ printer.name }} · {% endif %}{{ now }}</div></div>
+{% if printer and printer.printing %}
+<div class="main">
+  <div class="col col-l">
+    <div class="lab">进度</div>
+    <div class="prog tnum">{{ printer.progress }}<span style="font-size:40px;letter-spacing:0;">%</span></div>
+    <div class="pline"><i style="width:{{ printer.progress }}%"></i></div>
+    <div class="fname">{{ printer.task }}</div>
+    <div class="sub tnum">第 {{ printer.layer }} / {{ printer.total_layer }} 层 · {{ printer.state_text }}</div>
+    <div class="sub tnum">剩余 {{ printer.remaining_text }} · 完成 {{ printer.eta_clock }}</div>
+  </div>
+  <div class="col col-r">
+    <div class="lab">温度</div>
+    <div class="temps">
+      <div class="c"><div class="l">喷头</div><div class="v tnum">{{ printer.nozzle }}<span class="u">°</span></div><div class="t tnum">目标 {{ printer.nozzle_t }}°C</div></div>
+      <div class="c"><div class="l">热床</div><div class="v tnum">{{ printer.bed }}<span class="u">°</span></div><div class="t tnum">目标 {{ printer.bed_t }}°C</div></div>
+    </div>
+    <div class="det">
+      <div class="row"><span class="k">打印速度</span><span class="v">{{ printer.speed }}</span></div>
+      <div class="row"><span class="k">材料</span><span class="v">{{ printer.material }}</span></div>
+      <div class="row"><span class="k">预计耗材</span><span class="v tnum">{{ printer.weight }} g</span></div>
+      <div class="row"><span class="k">冷却风扇</span><span class="v tnum">{{ printer.cooling_fan }}%</span></div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="main">
+  <div class="idle"><div class="big">{{ printer.state_text if printer else "离线" }}</div><div style="font-size:15px;">打印机当前无任务</div>
+  {% if printer %}<div class="sub tnum" style="margin-top:18px;">喷头 {{ printer.nozzle }}°C · 热床 {{ printer.bed }}°C</div>{% endif %}</div>
+</div>
+{% endif %}
+<div class="foot"><span>更新于 <span class="tnum">{{ time_hm }}</span></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<span class="tnum">{{ battery.level }}%</span></span><span>打印机 · 05 / 05</span></div>
+</body></html>

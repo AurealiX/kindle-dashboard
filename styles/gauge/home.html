@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.col-l{width:330px;flex-shrink:0;display:flex;flex-direction:column;gap:12px;}
+.col-r{flex:1;min-width:0;}
+.wx-row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.wx-cond{font-size:16px;font-weight:700;margin-top:2px;}
+.wx-hum{width:120px;flex-shrink:0;}
+.wx-meta{margin-top:10px;padding-top:9px;border-top:1px solid var(--line2);
+  display:flex;flex-wrap:wrap;gap:5px 22px;font-size:12px;color:var(--ink2);font-weight:600;}
+.wx-meta b{font-weight:800;color:var(--ink);}
+.wx-range{margin-top:8px;font-size:13px;font-weight:700;display:flex;gap:18px;}
+.wx-range .lo{color:var(--ink3);font-weight:600;}
+.rem{flex:1;min-height:0;}
+.todo{flex:1;min-height:0;overflow:hidden;}
+.grp{font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--ink3);text-transform:uppercase;margin:8px 0 2px;}
+.grp:first-child{margin-top:0;}
+.ti{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid #e8e8e8;}
+.ti .mk{width:5px;height:5px;border-radius:50%;background:var(--ink);flex-shrink:0;align-self:center;}
+.ti .mk.o{background:none;border:1.5px solid var(--ink3);}
+.ti .tx{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ti .dt{font-size:11px;color:var(--ink3);margin-left:auto;font-weight:600;flex-shrink:0;}
+.cal{width:100%;height:100%;border-collapse:separate;border-spacing:4px;table-layout:fixed;}
+.cal th{font-size:10px;color:var(--ink3);font-weight:800;padding-bottom:3px;}
+.cal td{text-align:center;vertical-align:middle;border:1px solid var(--line2);border-radius:7px;}
+.cal .d{font-size:14px;font-weight:700;line-height:1.05;}
+.cal .l{font-size:8px;color:var(--ink4);font-weight:600;margin-top:1px;}
+.cal td.today{background:var(--ink);border-color:var(--ink);}
+.cal td.today .d{color:#fff;}.cal td.today .l{color:#fff;opacity:0.75;}
+.cal td.we .d{color:var(--ink3);}
+.cal td.hol .l{color:var(--ink2);font-weight:800;}
+.cal td.blank{border:none;}
+</style></head><body>
+<div class="cluster"><div class="ttl"><span class="chip">HOME</span>首页</div><div class="meta">{{ home.weekday }} · 农历{{ home.lunar }} · {{ home.ganzhi }}{% if home.term %} · {{ home.term }}{% endif %}</div></div>
+<div class="main">
+  <div class="col-l">
+    <div class="panel" style="flex-shrink:0;">
+      <div class="plate">气象<span class="aux">{{ home.date_md }}</span></div>
+      <div class="wx-row">
+        <div><div class="n-hero tnum">{{ home.weather.temp }}°</div><div class="wx-cond">{{ home.weather.cond }}</div></div>
+        {% set d = [home.weather.humidity|int,100]|min %}<div class="gz wx-hum"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ home.weather.humidity }}%</div><div class="cap">湿度</div></div>
+      </div>
+      <div class="wx-meta"><span>体感 <b>{{ home.weather.feels }}°</b></span><span>{{ home.weather.wind }}</span></div>
+      <div class="wx-range"><span>今 {{ home.weather.today_range }}</span><span>明 {{ home.weather.tmr_range }} <span class="lo">{{ home.weather.tmr_cond }}</span></span></div>
+    </div>
+    <div class="panel soft rem">
+      <div class="plate">提醒事项<span class="aux">{{ home.reminders.total }} 项待办</span></div>
+      <div class="todo">
+      {% if home.reminders.overdue %}<div class="grp">已过期</div>{% for r in home.reminders.overdue[:2] %}<div class="ti"><span class="mk"></span><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+      {% if home.reminders.today %}<div class="grp">今天</div>{% for r in home.reminders.today[:2] %}<div class="ti"><span class="mk o"></span><span class="tx">{{ r.title }}</span></div>{% endfor %}{% endif %}
+      {% if home.reminders.upcoming %}<div class="grp">近期</div>{% for r in home.reminders.upcoming[:3] %}<div class="ti"><span class="mk o"></span><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+      {% if not home.reminders.overdue and not home.reminders.today and not home.reminders.upcoming %}<div class="ti"><span class="tx" style="color:var(--ink3);">暂无近期提醒</span></div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="panel soft col-r">
+    <div class="plate">{{ home.year }} 年 {{ home.month }} 月历</div>
+    <table class="cal">
+      <tr><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th></tr>
+      {% for week in home.calendar %}<tr>{% for c in week %}{% if c %}<td class="{% if c.today %}today{% endif %} {% if c.weekend %}we{% endif %} {% if c.holiday %}hol{% endif %}"><div class="d tnum">{{ c.d }}</div><div class="l">{{ c.l }}</div></td>{% else %}<td class="blank"></td>{% endif %}{% endfor %}</tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<div class="foot"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>首页 · 1/5</span></div>
+</body></html>

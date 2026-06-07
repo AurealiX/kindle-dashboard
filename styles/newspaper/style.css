@@ -1,0 +1,92 @@
+/* 风格 newspaper —— 报纸 / 墨水屏灰度 / 横屏 800x600
+   视觉方向:粗报头 nameplate + 日期栏 + 多栏细分栏线 + 小字密排 + 首字/首数下沉。
+   纪律:
+   1. sans 字体,衬线感靠排版(粗报头/栏线/密排)而非中文 serif;字号阶 9/11/13/16/22/34/56。
+   2. 纯灰度;栏线/规则线分隔,标题用纯黑粗体;柱状用斜线网点。
+   3. 进度条带文本数值(bullet 原则)。
+   4. flex 多栏,栏间发丝竖线;不用 position:absolute。 */
+:root{
+  --ink:#000;
+  --ink2:#333;
+  --ink3:#6f6f6f;
+  --ink4:#9c9c9c;
+  --line:#000;
+  --line2:#c8c8c8;
+  --track:#e2e2e2;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:800px;height:600px;background:#fff;}
+body{
+  font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  padding:14px 20px 12px;
+  display:flex;flex-direction:column;
+}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+
+/* 斜线网点(柱状/强调) */
+.hatch-a{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,#fff 2px,#fff 4px);}
+.hatch-b{background-image:repeating-linear-gradient(-45deg,#000 0,#000 1px,#fff 1px,#fff 5px);}
+
+/* 报头 nameplate */
+.plate{flex-shrink:0;border-top:4px solid var(--ink);border-bottom:1px solid var(--ink);
+  padding:8px 0 6px;display:flex;justify-content:space-between;align-items:flex-end;}
+.plate .name{font-size:34px;font-weight:800;letter-spacing:-1px;line-height:0.95;}
+.plate .name .sm{font-size:13px;font-weight:700;letter-spacing:1px;color:var(--ink3);margin-left:8px;}
+.plate .ed{font-size:11px;color:var(--ink3);font-weight:600;text-align:right;line-height:1.5;letter-spacing:0.5px;}
+/* 日期栏 dateline */
+.dateline{flex-shrink:0;border-bottom:2px solid var(--ink);padding:4px 0;margin-bottom:12px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;font-weight:600;color:var(--ink2);letter-spacing:1px;}
+
+/* 多栏主体 */
+.main{flex:1;min-height:0;overflow:hidden;display:flex;}
+.main.vert{flex-direction:column;}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0;padding:0 16px;}
+.col:first-child{padding-left:0;}
+.col:last-child{padding-right:0;}
+.col + .col{border-left:1px solid var(--line2);}
+
+/* 栏题 kicker / headline */
+.kick{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  border-bottom:2px solid var(--ink);padding-bottom:4px;margin-bottom:9px;flex-shrink:0;
+  display:flex;justify-content:space-between;align-items:baseline;}
+.kick .aux{letter-spacing:0;font-weight:600;color:var(--ink3);font-size:10px;}
+.kick.mt{margin-top:14px;}
+.headline{font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1.05;}
+
+/* 数字阶 */
+.n-hero{font-size:56px;font-weight:800;line-height:0.82;letter-spacing:-2px;}
+.n-xl{font-size:34px;font-weight:800;letter-spacing:-1px;}
+.n-lg{font-size:22px;font-weight:800;}
+.n-md{font-size:16px;font-weight:700;}
+
+/* 规则线 */
+.rule{height:1px;background:var(--line2);margin:9px 0;flex-shrink:0;}
+.rule.dark{background:var(--ink);}
+
+/* 进度条 + 文本数值 */
+.bd{margin-bottom:10px;}
+.bd:last-child{margin-bottom:0;}
+.bd .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;}
+.bd .k{font-size:12px;font-weight:700;}
+.bd .v{font-size:13px;font-weight:800;}
+.bd .v small{font-size:10px;color:var(--ink3);font-weight:600;}
+.bar{height:11px;background:var(--track);border:1px solid var(--ink);overflow:hidden;}
+.bar > i{display:block;height:100%;}
+.bar.thin{height:8px;}
+
+/* 密排条目 */
+.item{display:flex;align-items:baseline;gap:7px;padding:4px 0;border-bottom:1px solid var(--line2);}
+.item .mk{font-size:10px;font-weight:800;flex-shrink:0;}
+.item .tx{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.item .dt{font-size:10px;color:var(--ink3);margin-left:auto;font-weight:600;flex-shrink:0;}
+.subhead{font-size:9px;font-weight:800;letter-spacing:1.5px;color:var(--ink3);text-transform:uppercase;margin:8px 0 2px;}
+.subhead:first-child{margin-top:0;}
+
+/* 页脚 folio */
+.folio{flex-shrink:0;margin-top:10px;border-top:2px solid var(--ink);padding-top:6px;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:10px;color:var(--ink3);font-weight:700;letter-spacing:1px;}
+.folio b{color:var(--ink2);}

@@ -1,0 +1,153 @@
+# 安装指南(详细)
+
+> 总览见 [README](../README.md)。本文补充各数据源配置、Kindle 前置、故障排查、验证状态。
+
+## 一、Mac 服务
+
+```bash
+bash installers/macos/install.sh
+```
+
+手动起服务(调试用):
+
+```bash
+.venv/bin/python -m server.run     # 读 config.yaml 的端口,绑 0.0.0.0
+```
+
+- 配置文件:仓库根 `config.yaml`(首次从 `config.example.yaml` 生成)
+- 日志:`data/service.log`
+- 改端口需重启服务;其余配置网页保存即热重载
+
+安装脚本会自动处理依赖,中途会问你两件事:
+- **渲染引擎**:没检测到 Chrome 时,问是否自动下载内置 chromium(playwright,约 150MB,装进 venv、不动系统)。选 Y 即可,无需自己装 Chrome。
+- **AI 用量统计**:问是否启用(见下「AI 用量」);选启用会自动装 Node + ccusage,不用你手动装。
+
+**菜单栏程序**:装完后 Mac 顶部状态栏出现 `● 看板`(运行中)/ `○ 看板`(已停),点开可:打开设置页、重启/启停服务、退出。不用记命令也能看状态、开关服务。
+
+### 更新已部署的服务(代码有新版时)
+配置改动网页保存即热重载;但 **Python 代码更新必须重启进程**才生效。步骤:
+1. 拿到最新代码(git 用户 `git pull`;手动同步则把最新文件覆盖到本地项目目录)。
+2. 重新跑 `bash installers/macos/install.sh`——它会更新依赖、重启 launchd 服务、跑健康自检。`config.yaml` 已存在则保留,不会覆盖你的设置。
+3. 验证新代码已上线:浏览器开 `http://<本机IP>:端口/health`,或某新端点确认。
+> ⚠️ 不要直接在网络共享盘(SMB/NFS,Mac 上的 `/Volumes/...`)里跑服务:venv 在网络盘建不干净。务必先把项目拷到本地盘(如 `~/kindle-dashboard`)再装/更新。
+
+## 二、各数据源配置
+
+### 天气(QWeather)
+1. 注册 [和风天气](https://dev.qweather.com/) 免费开发者
+2. 拿到 **API Key** 和**专属 API Host**(形如 `xxx.re.qweatherapi.com`)
+3. 查城市 **LocationID**(如北京 `101010100`)
+4. 设置页「天气」填入 → 首页出现天气
+
+### Home Assistant(打印机/更多设备)
+1. HA 用户资料页 → 创建**长期访问令牌**(Long-Lived Access Token)
+2. 设置页「Home Assistant」填地址 + 令牌
+3. 「3D 打印机」填实体前缀(如 `a1_xxxx`)→ 打印机页出现
+
+### AI 用量(ccusage)
+- **本机直采,零配置,无中间服务**:安装时回答"启用 AI 用量"→ 自动装 Node + [ccusage](https://github.com/ryoppippi/ccusage) 并把 `ai_usage.enabled` 置 true,服务端每轮跑 `ccusage claude/codex daily --json` 读本机日志(见 `server/sources/ccusage_cli.py`)。看板服务跑在哪台机器就读那台的用量。
+- 「额度」(5h/周窗口)是另一回事(ccusage 不提供),见下「AI 额度」小节;不启用时 AI 页额度显示 0%(诚实降级)。
+
+### AI 额度(Claude 5h/周 + Codex 5h/周,仅 macOS)
+在 AI 页显示 Claude / Codex 的额度用量%。**push 模式**:在跑 Claude Code / Codex CLI 的机器上采集,POST 到看板 `/api/rate-limits`(看板服务本身拿不到这些数据,只能被设备送上门)。
+
+- **Claude**(官方机制,稳):走 Claude Code 的 **statusLine** —— Claude Code 把含 `rate_limits` 的 JSON 从 stdin 喂给你配的状态栏命令。`enable_quota.sh` 检测 `~/.claude/settings.json`:**没配过 statusLine 就备份后写入**指向 `installers/macos/quota/claude_statusline.py`;**已自定义则不覆盖**,打印「把那段 POST 抄进你自己的 statusline」的指引(脚本里 `# >>> 上报额度` 到 `# <<<` 那段)。
+- **Codex**(⚠️ 非公开接口,可能失效):`codex_quota.py` 读 `~/.codex/auth.json` 调 `chatgpt.com/backend-api/wham/usage`,launchd 定时上报。`wham/usage` 是 OpenAI 内部接口、无文档,**官方一改即失效**(不影响 Claude)。国内访问 chatgpt.com 多半要代理:在 config 设 `quota.codex_proxy: http://127.0.0.1:7897`。
+
+启用方式(在装看板的 Mac 上、项目目录执行):
+- **装看板时**:`install.sh` 会问「是否启用 AI 额度?」+「Codex 多久上报一次(秒)」,选 `y` 即自动装好。
+- **事后想加**:`bash installers/macos/enable_quota.sh`
+- **停用**:`bash installers/macos/disable_quota.sh`(卸 Codex launchd;Claude 的 statusLine 按提示自行撤)
+- **间隔**:`ai_usage.codex_quota_interval`(秒,launchd)/ `ai_usage.claude_quota_interval`(秒,statusLine 节流);改后重跑 `enable_quota.sh` 生效。
+
+### 设备监控(Win/Linux/Mac)
+**看板所在机(这台 Mac)**:安装时回答"启用本机性能监控"即可(自动加一台 `local` 设备),或事后在设置页「设备监控」加一台『本机直读』。
+
+**另一台机器(NAS / Linux / Mac)三选一:**
+- **本机直读(local)**:仅服务所在机,零额外安装。
+- **推(agent,推荐,不交密码)**:在设置页「设备监控」底部复制那行命令,到目标机上跑一次即可:
+  ```sh
+  curl -fsSL http://<看板IP>:<端口>/agent/install.sh | sh -s -- http://<看板IP>:<端口> 30
+  ```
+  装好后每 30 秒(改末尾数字调间隔)推一次,目标机自动出现在设置页「发现设备」里,点一下加进来改名。
+  自启:Linux 用 `@reboot` cron、macOS 用 launchd。卸载:`... | sh -s -- uninstall`。
+  **间隔由目标机 agent 自己定(装时设),看板设置页改不了**(与本机/SSH 的服务端间隔不同)。Windows 版命令稍后提供。
+- **拉(SSH)**:服务端 SSH 进去读,目标机零安装;密码登录需主机装 `sshpass`,推荐用免密 key。
+- `platform` 选对(auto/linux/macos/windows);可重命名、勾选只显示部分指标。
+
+采集脚本:`server/sources/collectors/`(linux.sh / macos.sh / windows.ps1),本机直读 / SSH 拉 / 推 agent 三处复用。
+推送 agent:`installers/push-agent/`(`install_agent.sh` 由看板 `/agent/install.sh` 下发;`push_agent.sh` 循环采集+POST)。
+
+### 提醒事项(苹果,仅 macOS)
+把本机「提醒事项」App(含 iPhone 经 iCloud 同步过来的)显示到看板。原理:一个后台 agent 每 5 分钟用 JXA 读 Reminders.app,POST 到 `/api/apple-sync`。
+
+启用方式(任选其一,两种都需在你装看板的 Mac 终端、项目目录下执行):
+- **装看板时**:`install.sh` 会问「是否启用提醒事项同步?」,选 `y` 即自动装好。
+- **事后想加**:在设置页「提醒事项」卡片复制那行命令运行:
+  ```bash
+  bash installers/macos/enable_reminders.sh
+  ```
+- **停用**:`bash installers/macos/disable_reminders.sh`
+
+首次运行会弹「允许访问提醒事项」,**必须点【允许】**,否则读不到。误点拒绝:系统设置 → 隐私与安全性 → 提醒事项,勾选 终端/osascript 后重跑命令。
+
+> 为什么不在网页上放个开关?因为它要装本机后台 agent + 一次系统授权,只有终端前台运行才弹得出授权框;网页点开关会变成「显示开着、其实没数据」。所以用一行命令一键搞定,装/卸状态以 agent 是否在为准(设置页徽章)。
+
+## 三、Kindle 前置
+
+1. **越狱**:按你的固件版本找对应方法(本项目不含越狱工具)
+2. **开 USBNetwork**:让 Kindle 通过 USB 提供 SSH(默认 IP 常为 `192.168.15.244`)
+3. **装 fbink**:刷屏必需,通常随 KUAL/越狱工具包提供
+4. 数据线用支持**数据传输**的(非纯充电线)
+5. **SSH root 密码**:安装时会要求输入。越狱包(KUAL/USBNetwork 等)**常见默认密码是 `mario`**;若你越狱时改过,用你设的。`install.sh` 运行时也会提示这条。
+
+然后主机端:
+
+```bash
+sh installers/kindle/detect.sh [KINDLE_IP]      # 识别:USB 接入 + SSH 可达
+sh installers/kindle/install.sh [KINDLE_IP] [SERVER_URL] [INTERVAL]
+sh installers/kindle/uninstall.sh [KINDLE_IP]   # 一键还原
+```
+
+`install.sh` 会推送 `start.sh`/`stop.sh`、写服务地址到 `/mnt/us/dashboard.conf`、加 `@reboot` 自启(带 `# kindle-dashboard` 标记便于卸载精确移除)、启动显示。
+
+**刷新间隔**:`install.sh` 运行时会问「Kindle 多久拉一次新图(秒)」,常用 10/20/30/60、回车默认 20,写进 `dashboard.conf` 的 `INTERVAL`(也可作第三参数传入,如 `... [SERVER_URL] 30`;非交互默认 20,<5s 自动回退 20)。注意区分两个间隔:
+- **`INTERVAL`(Kindle 拉图间隔)**:刷机时定,Kindle 端多久拉一张新图。改它要重跑 `install.sh`,网页改不了。
+- **`page_interval`(服务端轮播间隔)**:看板多少秒翻一页,设置网页里随时可配。
+
+**Mac IP 变化兜底**:Mac 的局域网 IP 可能变,导致 Kindle 拉图地址失效、看板停更。**主因常是 Apple 的「私有 Wi-Fi 地址」(MAC 随机化)**:默认值是「轮替」,Mac 每隔一阵换个随机 MAC,路由器按 MAC 记租约,MAC 一变 IP 就跟着变(不是普通 DHCP 续租)。`install.sh` 会探测 Mac 的 `.local`(mDNS)主机名写成**备用地址**(`SERVER_URL_ALT`),Kindle 端 `start.sh` 拉图连续失败时在主(IP)/备(`.local`)地址间**自动轮换**。
+- ⚠️ Kindle busybox 不一定自带 mDNS 解析 —— `install.sh` **装完会让 Kindle 当场 `curl` 实测**并打印结果(✓ 可用 / ⚠ 不可用)。**真机实测:基础款 KT3 解析不了 `.local`(`curl` 返回 000),`.local` 兜底对它无效**(对支持 mDNS 的环境才有效,无害)。
+- **最简单的根治办法**(推荐):系统设置 → Wi-Fi → 当前网络「详细信息…」→「私有 Wi-Fi 地址」从**「轮替」改成「固定」**。MAC 不再变,路由器通常就持续分给同一 IP,地址稳了。
+- 想 100% 保险:改「固定」后再去路由器把这个 MAC 绑死到一个 IP;或在 Mac 的 TCP/IP 里把 IPv4 设为「手动」固定 IP(不经 DHCP,彻底绕开)。
+- ❌ **别直接靠路由器绑 MAC**:只要「私有 Wi-Fi 地址」还是「轮替」,MAC 一直变,绑了也没用 —— 必须先改成「固定」。
+
+**屏幕分辨率(机型)**:设置网页「服务」里有 **Kindle 机型** 下拉,选你的型号(基础版 6″/Paperwhite 3-4/PW5/PW12·Oasis/Scribe),服务端就按该机型原生分辨率出清晰图——高 PPI 机型不再被放大糊字。
+- 原理:风格只按基准画布 **横屏 800×600** 设计,渲染时用 Chrome `--force-device-scale-factor` 把同一份布局**矢量放大**到目标分辨率(字体/线条放大依旧锐利,CSS 零改动)。详见 `docs/multi-resolution-spec.md`。
+- 6″ 基础版选第一个即可(=现状,行为不变)。不确定型号:机器背面或「设置→设备信息」。
+- 列表没有你的机型 → 选「自定义」,手填**横屏分辨率**(= 竖屏宽高对调,如竖屏 1236×1648 的 PW5 填宽 1648、高 1236)。
+- 极少数非 4:3 机型:等比缩放 + 白底居中(letterbox),不裁切不变形;要像素级铺满需风格层单独出变体(P2)。
+- Kindle 端 `fbink` 按图实际尺寸贴屏,服务端出原生分辨率即严丝合缝,**无需改 Kindle 端**。
+
+## 四、故障排查
+
+| 现象 | 排查 |
+|---|---|
+| 渲染失败/白屏 | 确认装了 Chrome/Chromium;或设 `CHROME_BIN` 指向可执行文件 |
+| 中文显示成方块 | 装中文字体(Linux:`fonts-noto-cjk`;Mac 自带苹方,一般无需) |
+| 连不上 Kindle | 跑 `detect.sh`;确认越狱+USBNetwork+数据线;默认 IP `192.168.15.244` |
+| Kindle 不刷屏 | 缺 `fbink`,通过 KUAL/越狱工具安装 |
+| Kindle 时间冻结(Docker) | compose 加 `init: true`(已内建);本机直跑无此问题 |
+| 设备页空 | 确认机器已配置且采集成功;push 设备需 agent 已上报 |
+
+## 五、验证状态(诚实清单)
+
+**已自动化测试(42 项,`python3 -m pytest tests/ -q`)**:
+- 配置 schema/加载/校验/脱敏保存、数据契约、数据整合
+- 渲染管线真实出图(降级 + 真实数据)、风格调度
+- Linux 本机采集端到端、主服务全部 API、设置页与实时预览(真机 chrome 截图验证)
+
+**待真机验证**:
+- macOS / Windows 采集脚本(`collect_macos.sh` / `collect_windows.ps1`)
+- SSH 拉模式(尤其密码登录需 `sshpass`;Windows 目标 SSH)
+- Mac launchd 安装(`installers/macos/`)
+- Kindle 识别/安装/卸载全流程(`installers/kindle/`,需真机 Kindle)

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kindle Dashboard · 设置</title>
+<style>
+  :root{--bg:#f5f5f4;--card:#fff;--ink:#1c1917;--ink2:#57534e;--ink3:#a8a29e;--line:#e7e5e4;--accent:#1c1917;--ok:#16a34a;--err:#dc2626;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,'Noto Sans CJK SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;}
+  header{position:sticky;top:0;z-index:10;background:var(--card);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;gap:16px;}
+  header h1{font-size:18px;margin:0;font-weight:800;}
+  header .sec-note{font-size:12px;color:var(--ink3);}
+  header .spacer{flex:1;}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:8px;padding:8px 14px;font-weight:600;}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  button:active{transform:translateY(1px);}
+  #status{font-size:12px;color:var(--ink2);}
+  main{display:grid;grid-template-columns:1fr 420px;gap:24px;padding:24px;max-width:1280px;margin:0 auto;align-items:start;}
+  @media(max-width:920px){main{grid-template-columns:1fr;}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px;}
+  .card h2{font-size:15px;margin:0 0 4px;font-weight:800;}
+  .card .help{font-size:12px;color:var(--ink3);margin-bottom:14px;}
+  .field{margin-bottom:13px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:4px;}
+  .field .fhelp{font-size:11px;color:var(--ink3);margin-top:3px;}
+  .field input[type=text],.field input[type=password],.field input[type=number],.field select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fafaf9;}
+  .field.inline{display:flex;align-items:center;gap:8px;}
+  .field.inline label{margin:0;}
+  .badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;background:var(--line);color:var(--ink2);margin-left:6px;}
+  .badge.on{background:#dcfce7;color:#15803d;}
+  .machine{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;background:#fafaf9;}
+  .machine .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+  .machine .ssh{display:none;}
+  .machine.mode-ssh .ssh{display:block;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .chip{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:3px 10px;cursor:pointer;user-select:none;background:#fff;}
+  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .preview{position:sticky;top:78px;}
+  .preview .tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+  .preview .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .preview .frame{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
+  .preview img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:4px;background:#fff;}
+  .preview .ctl{display:flex;gap:8px;align-items:center;margin:10px 0;}
+  .secnote{background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:12px;border-radius:8px;padding:8px 12px;margin-bottom:14px;}
+  .errbox{background:#fef2f2;border:1px solid #fecaca;color:var(--err);font-size:12px;border-radius:8px;padding:8px 12px;margin-bottom:14px;white-space:pre-line;display:none;}
+  .add-disc{font-size:12px;color:var(--ink2);margin-top:8px;}
+  .add-disc a{color:#2563eb;cursor:pointer;margin-right:10px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>Kindle Dashboard</h1><span class="sec-note">设置</span>
+  <span class="spacer"></span>
+  <span id="status"></span>
+  <button class="primary" onclick="save()">保存</button>
+</header>
+<main>
+  <div id="forms">
+    <div class="secnote">🔒 你填的天气 Key / HA 令牌 / SSH 账号<b>只存本地</b>(config.yaml),不会上传任何服务器。</div>
+    <div class="errbox" id="errbox"></div>
+    <div id="form-body"></div>
+  </div>
+  <div class="preview">
+    <div class="card">
+      <h2>实时预览</h2>
+      <div class="help">所见即所得 —— 切风格立即变;改配置点「保存」后刷新。</div>
+      <div class="tabs" id="page-tabs"></div>
+      <div class="ctl">
+        <label>风格</label>
+        <select id="style-sel" onchange="refreshPreview()" style="flex:1;padding:6px;border-radius:8px;border:1px solid var(--line);"></select>
+        <button onclick="refreshPreview()">刷新</button>
+      </div>
+      <div class="frame"><img id="preview-img" alt="预览"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+let SCHEMA=[], CONFIG={}, STYLES=[], PAGES=[], DISCOVERED=[], curPage="home";
+const MASK="••••••";
+
+async function init(){
+  const [sc, cf, st, dv] = await Promise.all([
+    fetch('/api/schema').then(r=>r.json()),
+    fetch('/api/config').then(r=>r.json()),
+    fetch('/api/styles').then(r=>r.json()),
+    fetch('/api/discovered-devices').then(r=>r.json()),
+  ]);
+  SCHEMA=sc; CONFIG=cf.config; STYLES=st.styles; PAGES=st.pages; DISCOVERED=dv.devices;
+  renderForm(); renderPreviewControls(); updateStatus(cf.status);
+}
+
+function renderForm(){
+  const root=document.getElementById('form-body'); root.innerHTML='';
+  for(const sec of SCHEMA){
+    const c=document.createElement('div'); c.className='card';
+    c.innerHTML=`<h2>${sec.label}<span class="badge" id="badge-${sec.key}"></span></h2>`+
+                (sec.help?`<div class="help">${sec.help}</div>`:'');
+    if(sec.key==='devices') c.appendChild(renderDevices(sec));
+    else if(sec.key==='ha_page') c.appendChild(renderHaEntities(sec));
+    else for(const f of sec.fields){ const n=renderField(sec.key,f); if(n) c.appendChild(n); }
+    // devices/ha_page 用自定义列表控件,其标量字段(如 devices.interval)在列表后补渲染
+    if(sec.key==='devices'||sec.key==='ha_page')
+      for(const f of sec.fields){ if(f.type!=='module_list'){ const n=renderField(sec.key,f); if(n) c.appendChild(n); } }
+    if(sec.key==='reminders') c.appendChild(renderReminderCmd());
+    if(sec.key==='mstodo') c.appendChild(renderMstodo());
+    root.appendChild(c);
+  }
+  wireKindleModel();
+}
+
+// 机型下拉 ↔ 自定义宽高联动:选具体机型→自动回填横屏分辨率并锁定输入;选「自定义」→可手填。
+// 映射表唯一数据源 = schema 的 kindle_model.options(每项 [value,label,w,h]),不在前端复制。
+function wireKindleModel(){
+  const sel=document.getElementById('f-server-kindle_model');
+  const wEl=document.getElementById('f-server-render_width');
+  const hEl=document.getElementById('f-server-render_height');
+  if(!sel||!wEl||!hEl) return;
+  const srv=(SCHEMA.find(s=>s.key==='server')||{}).fields||[];
+  const opts=(srv.find(f=>f.key==='kindle_model')||{}).options||[];
+  function apply(){
+    const m=opts.find(o=>o[0]===sel.value);
+    const custom=(sel.value==='custom');
+    if(m && !custom){ wEl.value=m[2]; hEl.value=m[3]; }
+    wEl.readOnly=hEl.readOnly=!custom;
+    wEl.style.opacity=hEl.style.opacity=custom?'1':'0.55';
+  }
+  sel.addEventListener('change',apply);
+  apply();
+}
+
+function renderField(sk,f){
+  if(f.hidden) return null;   // 由配套控件维护(如城市名由城市选择器写入隐藏 input)
+  const v=(CONFIG[sk]||{})[f.key];
+  const d=document.createElement('div'); d.className='field'; const id=`f-${sk}-${f.key}`;
+  const help=f.help?`<div class="fhelp">${f.help}</div>`:'';
+  if(f.type==='city'){ return cityField(sk,f,v,help); }
+  if(f.type==='bool'){
+    d.className='field inline';
+    d.innerHTML=`<input type="checkbox" id="${id}" ${v?'checked':''}><label for="${id}">${f.label}</label>`+help;
+  }else if(f.type==='enum'){
+    const opts=(f.options||[]).map(o=>`<option value="${o[0]}" ${v===o[0]?'selected':''}>${o[1]}</option>`).join('');
+    d.innerHTML=`<label>${f.label}</label><select id="${id}">${opts}</select>`+help;
+  }else if(f.type==='int'||f.type==='float'){
+    d.innerHTML=`<label>${f.label}</label><input type="number" id="${id}" value="${v??''}" step="${f.type==='float'?'0.1':'1'}">`+help;
+  }else if(f.type==='str_list'){
+    d.innerHTML=`<label>${f.label}</label><input type="text" id="${id}" value="${(v||[]).join(', ')}" placeholder="逗号分隔">`+help;
+  }else if(f.secret){
+    d.innerHTML=`<label>${f.label} 🔑</label><input type="password" id="${id}" value="${v===MASK?MASK:''}" placeholder="${v===MASK?'已保存,留空不改':''}">`+help;
+  }else{
+    d.innerHTML=`<label>${f.label}</label><input type="text" id="${id}" value="${v??''}">`+help;
+  }
+  return d;
+}
+
+// Microsoft To Do:设备码登录。点【连接】→ 显示 code+网址 → 轮询 → 已连接显示账号+断开。
+// 用户不需要任何 API/密钥,只用自己的微软账号登录授权一次(详见 docs/mstodo-integration.md)。
+function renderMstodo(){
+  const wrap=document.createElement('div'); wrap.className='field';
+  let poll=null;
+  function render(st){
+    if(poll){ clearInterval(poll); poll=null; }
+    if(st&&st.connected){
+      wrap.innerHTML=`<div class="fhelp" style="margin-bottom:8px;">✅ 已连接${st.account?(':<b>'+st.account+'</b>'):''}</div>
+        <button type="button" class="mst-disc">断开连接</button>`;
+      wrap.querySelector('.mst-disc').onclick=async()=>{
+        await fetch('/api/mstodo/logout',{method:'POST'});
+        const cf=await fetch('/api/config').then(r=>r.json()); CONFIG=cf.config; updateStatus(cf.status);
+        render({connected:false});
+      };
+    }else{
+      wrap.innerHTML=`<div class="fhelp" style="margin-bottom:8px;">未连接。点下方按钮,用你的微软账号登录一次即可。</div>
+        <button type="button" class="mst-conn primary">连接 Microsoft To Do</button>
+        <div class="mst-flow" style="margin-top:10px;"></div>`;
+      wrap.querySelector('.mst-conn').onclick=startLogin;
+    }
+  }
+  async function startLogin(){
+    const flow=wrap.querySelector('.mst-flow');
+    flow.innerHTML='<div class="fhelp">正在向微软申请登录…</div>';
+    let j; try{ j=await fetch('/api/mstodo/login/start',{method:'POST'}).then(r=>r.json()); }
+    catch(e){ flow.innerHTML='<div class="fhelp" style="color:#dc2626;">网络错误,请重试</div>'; return; }
+    if(!j.ok){ flow.innerHTML=`<div class="fhelp" style="color:#dc2626;">${j.error||'发起失败'}</div>`; return; }
+    flow.innerHTML=`<div style="background:#f4f4f4;border-radius:8px;padding:10px 12px;">
+        <div class="fhelp" style="margin-bottom:6px;">① 打开 <a href="${j.verification_uri}" target="_blank">${j.verification_uri}</a></div>
+        <div class="fhelp" style="margin-bottom:6px;">② 输入代码(点可复制):
+          <code class="mst-code" style="user-select:all;font-size:14px;background:#fff;padding:2px 8px;border-radius:5px;cursor:pointer;">${j.user_code}</code></div>
+        <div class="fhelp">③ 用你的微软账号登录并点【允许】,这里会自动变「已连接」</div>
+        <div class="fhelp mst-wait" style="margin-top:6px;color:#2563eb;">等待授权中…</div>
+      </div>`;
+    const codeEl=flow.querySelector('.mst-code');
+    codeEl.onclick=()=>{ navigator.clipboard&&navigator.clipboard.writeText(j.user_code); codeEl.textContent=j.user_code+' ✓'; };
+    const sid=j.session, every=Math.max(2,(j.interval||5))*1000;
+    poll=setInterval(async()=>{
+      let s; try{ s=await fetch('/api/mstodo/login/status?session='+encodeURIComponent(sid)).then(r=>r.json()); }catch(e){ return; }
+      if(s.state==='success'){
+        const cf=await fetch('/api/config').then(r=>r.json()); CONFIG=cf.config; updateStatus(cf.status);
+        render({connected:true,account:s.account});
+      }else if(s.state==='error'||s.state==='expired'){
+        if(poll){ clearInterval(poll); poll=null; }
+        flow.querySelector('.mst-wait').innerHTML=`<span style="color:#dc2626;">${s.state==='expired'?'代码已过期,请重新点连接':('登录失败:'+(s.error||''))}</span>`;
+      }
+    },every);
+  }
+  fetch('/api/mstodo/state').then(r=>r.json()).then(render).catch(()=>render({connected:false}));
+  return wrap;
+}
+
+// 提醒事项:不放可点开关,改为显示一行可复制命令(在 Mac 终端、项目目录下运行)。
+// 因为它需要装本机后台 agent + 一次系统授权,只有终端前台跑才弹得出授权框;
+// 网页点开关会造成"显示开着、其实没数据"的假象。状态以 agent 是否装上为准(顶部徽章)。
+function renderReminderCmd(){
+  const on=(CONFIG.reminders||{}).enabled;
+  const cmd=on?'bash installers/macos/disable_reminders.sh'
+              :'bash installers/macos/enable_reminders.sh';
+  const tip=on?'已启用。要停用,在 Mac 终端、看板项目目录下运行:'
+              :'要启用,在 Mac 终端、看板项目目录下运行(会请求一次「访问提醒事项」授权):';
+  const d=document.createElement('div'); d.className='field';
+  d.innerHTML=`<div class="fhelp" style="margin-bottom:6px;">${tip}</div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <code style="flex:1;background:#f4f4f4;padding:8px 10px;border-radius:6px;font-size:13px;user-select:all;word-break:break-all;">${cmd}</code>
+      <button type="button" class="rem-copy" style="white-space:nowrap;">复制</button>
+    </div>
+    <div class="fhelp" style="margin-top:6px;">仅 macOS。运行后看板下一轮即可显示提醒事项;此页徽章会变「已启用」。</div>`;
+  d.querySelector('.rem-copy').onclick=()=>{
+    const ok=()=>{ const b=d.querySelector('.rem-copy'); b.textContent='已复制'; setTimeout(()=>b.textContent='复制',1500); };
+    if(navigator.clipboard){ navigator.clipboard.writeText(cmd).then(ok).catch(ok); }
+    else { const t=document.createElement('textarea'); t.value=cmd; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); ok(); }
+  };
+  return d;
+}
+
+// 城市选择器:搜城市名 → GeoAPI 候选 → 选中写编码+城市名;折叠「高级」可手填 LocationID。
+function cityField(sk,f,v,help){
+  const cityName=(CONFIG[sk]||{}).location_name||'';
+  const d=document.createElement('div'); d.className='field';
+  d.innerHTML=`<label>${f.label}</label>
+    <div style="display:flex;gap:6px;">
+      <input type="text" class="city-q" placeholder="输入城市名搜索,如 上海 / 朝阳" style="flex:1">
+      <button type="button" class="city-go" style="white-space:nowrap;">搜索</button>
+    </div>
+    <div class="city-cur" style="font-size:12px;margin-top:5px;">当前:<b class="city-name">${cityName||'(未选择)'}</b> <span class="aux city-id">${v?('· '+v):''}</span></div>
+    <div class="city-results" style="margin-top:4px;"></div>
+    <input type="hidden" id="f-${sk}-location" value="${v||''}">
+    <input type="hidden" id="f-${sk}-location_name" value="${cityName||''}">
+    <details style="margin-top:6px;"><summary style="font-size:12px;color:var(--ink3);cursor:pointer;">高级:手填 LocationID</summary>
+      <input type="text" class="city-code" value="${v||''}" placeholder="如 101010100" style="margin-top:5px;">
+    </details>`+help;
+  const q=d.querySelector('.city-q'), go=d.querySelector('.city-go'),
+        box=d.querySelector('.city-results'), code=d.querySelector('.city-code'),
+        hid=d.querySelector(`#f-${sk}-location`), hname=d.querySelector(`#f-${sk}-location_name`),
+        curName=d.querySelector('.city-name'), curId=d.querySelector('.city-id');
+  function pick(id,name){ hid.value=id; hname.value=name; code.value=id;
+    curName.textContent=name||'(未选择)'; curId.textContent=id?('· '+id):''; box.innerHTML=''; }
+  async function doSearch(){
+    const text=q.value.trim(); if(!text){ box.innerHTML=''; return; }
+    box.innerHTML='<div class="aux" style="font-size:12px;">搜索中…</div>';
+    let j; try{ j=await fetch('/api/city-search?q='+encodeURIComponent(text)).then(r=>r.json()); }
+    catch(e){ box.innerHTML='<div class="aux" style="font-size:12px;color:#b00;">网络错误</div>'; return; }
+    if(!j.ok){ box.innerHTML=`<div class="aux" style="font-size:12px;color:#b00;">${j.error||'搜索失败'}</div>`; return; }
+    if(!j.results.length){ box.innerHTML='<div class="aux" style="font-size:12px;">无匹配城市</div>'; return; }
+    box.innerHTML='';
+    j.results.forEach(c=>{
+      const b=document.createElement('button'); b.type='button';
+      b.style.cssText='display:block;width:100%;text-align:left;padding:6px 8px;margin-top:3px;border:1px solid var(--line);border-radius:6px;background:#fafaf9;cursor:pointer;font:inherit;';
+      b.innerHTML=`<b>${c.name}</b> <span class="aux" style="font-size:11px;">${[c.adm2,c.adm1].filter(Boolean).join(' · ')}</span>`;
+      b.onclick=()=>pick(c.id,c.name); box.appendChild(b);
+    });
+  }
+  go.onclick=doSearch;
+  q.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); doSearch(); } });
+  code.addEventListener('input',()=>{ hid.value=code.value.trim(); hname.value=''; // 手填编码:清城市名,采集时 GeoAPI 反查补上
+    curName.textContent='(手填编码)'; curId.textContent=code.value.trim()?('· '+code.value.trim()):''; });
+  return d;
+}
+
+// ---- 设备模块 ----
+function renderDevices(sec){
+  const wrap=document.createElement('div'); wrap.id='machines';
+  const list=(CONFIG.devices&&CONFIG.devices.machines)||[];
+  list.forEach((m,i)=>wrap.appendChild(machineCard(m,i)));
+  const add=document.createElement('button'); add.textContent='+ 添加机器';
+  add.onclick=()=>{ wrap.insertBefore(machineCard({mode:'local',platform:'auto',fields:[]}, list.length+Math.random()), discDiv); };
+  // 发现的设备(已上报但未配置)
+  const configuredKeys=new Set(list.map(m=>(m.id||m.name||'').trim()));
+  const discDiv=document.createElement('div'); discDiv.className='add-disc';
+  const fresh=DISCOVERED.filter(d=>!configuredKeys.has(d.key));
+  if(fresh.length){
+    discDiv.innerHTML='发现设备:'+fresh.map(d=>`<a onclick='addDiscovered(${JSON.stringify(d)})'>+ ${d.hostname}</a>`).join('');
+  }
+  wrap.appendChild(discDiv); wrap.appendChild(add);
+  wrap.appendChild(pushAgentBox());
+  return wrap;
+}
+
+// 远程机器「推」模式:展示一行命令,用户复制到那台机器(NAS/Linux/Mac)上运行即可装上 agent。
+// 命令里的看板地址用当前网页地址(window.location.origin),自动正确。
+function pushAgentBox(){
+  const o=window.location.origin;               // 如 http://192.168.1.100:8585
+  const nix=`curl -fsSL ${o}/agent/install.sh | sh -s -- ${o} 30`;
+  const win=`$u='${o}'; iwr "$u/agent/install.ps1" -UseBasicParsing -OutFile "$env:TEMP\\kda.ps1"; powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\\kda.ps1" $u 30`;
+  const row=(id,val)=>`<div style="display:flex;gap:6px;align-items:stretch;margin-top:5px;">
+      <input type="text" readonly value="${val.replace(/"/g,'&quot;')}" id="${id}"
+             style="flex:1;font:12px monospace;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fafaf9;">
+      <button type="button" onclick="copyCmd('${id}')" style="white-space:nowrap;">复制</button></div>`;
+  const d=document.createElement('div');
+  d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
+  d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;">
+      <b>监控另一台机器(不交密码)</b>:在那台机器上跑下面对应系统的命令,它就会每 30 秒把性能发来;
+      回这页刷新,在上面「发现设备」里点一下加进来改名。改间隔把命令末尾的 <code>30</code> 换成你要的秒数。</div>
+    <div class="fhelp"><b>Linux / NAS / Mac</b>(终端):</div>${row('push-nix',nix)}
+    <div class="fhelp" style="margin-top:8px;"><b>Windows</b>(PowerShell):</div>${row('push-win',win)}
+    <div class="fhelp" style="margin-top:6px;">卸载:Linux/Mac 把命令末尾 <code>${o} 30</code> 换成 <code>uninstall</code>;
+      Windows 把末尾 <code>$u 30</code> 换成 <code>uninstall</code>。</div>`;
+  return d;
+}
+function copyCmd(id){
+  const el=document.getElementById(id); el.select();
+  const done=()=>{ const b=event.target; const t=b.textContent; b.textContent='已复制'; setTimeout(()=>b.textContent=t,1200); };
+  navigator.clipboard?.writeText(el.value).then(done).catch(()=>{ document.execCommand('copy'); done(); });
+}
+
+function machineCard(m,idx){
+  const card=document.createElement('div'); card.className='machine mode-'+(m.mode||'local');
+  card.dataset.idx=idx;
+  const fieldsFor = DISCOVERED.find(d=>d.key===(m.id||m.name))?.fields || ['cpu','mem','net','disk_io'];
+  const sel=new Set(m.fields&&m.fields.length?m.fields:fieldsFor); // 空=全选
+  const chips=fieldsFor.map(fk=>`<span class="chip ${sel.has(fk)?'on':''}" data-f="${fk}" onclick="this.classList.toggle('on')">${fk}</span>`).join('');
+  card.innerHTML=`
+    <div class="row">
+      <div class="field"><label>名称</label><input type="text" class="m-name" value="${m.name||''}"></div>
+      <div class="field"><label>采集方式</label><select class="m-mode" onchange="this.closest('.machine').className='machine mode-'+this.value">
+        <option value="local" ${m.mode==='local'?'selected':''}>本机直读</option>
+        <option value="push" ${m.mode==='push'?'selected':''}>推(装 agent)</option>
+        <option value="ssh" ${m.mode==='ssh'?'selected':''}>拉(SSH)</option></select></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>系统</label><select class="m-platform">
+        ${['auto','linux','macos','windows'].map(p=>`<option ${m.platform===p?'selected':''}>${p}</option>`).join('')}</select></div>
+      <div class="field"><label>标识(push 关联)</label><input type="text" class="m-id" value="${m.id||''}" placeholder="留空=用名称"></div>
+    </div>
+    <div class="ssh">
+      <div class="row">
+        <div class="field"><label>地址</label><input type="text" class="m-host" value="${m.host||''}"></div>
+        <div class="field"><label>SSH 端口</label><input type="number" class="m-port" value="${m.ssh_port||22}"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>SSH 用户</label><input type="text" class="m-user" value="${m.ssh_user||''}"></div>
+        <div class="field"><label>SSH 密码 🔑</label><input type="password" class="m-pw" placeholder="${m.ssh_password===MASK?'已保存,留空不改':''}" value="${m.ssh_password===MASK?MASK:''}"></div>
+      </div>
+    </div>
+    <label style="font-size:12px;font-weight:600;">显示项(勾选要显示的,全不勾=全显示)</label>
+    <div class="chips">${chips}</div>
+    <div style="text-align:right;margin-top:8px;"><button onclick="this.closest('.machine').remove()" style="font-size:12px;padding:4px 10px;">删除</button></div>`;
+  return card;
+}
+
+function addDiscovered(d){
+  const wrap=document.getElementById('machines');
+  const card=machineCard({name:d.hostname,id:d.key,mode:'push',platform:'auto',fields:[]}, 'd'+d.key);
+  wrap.insertBefore(card, wrap.querySelector('.add-disc'));
+}
+
+// ---- 智能家居(HA 实体卡片)----
+const HA_DOMAINS=['','light','switch','sensor','binary_sensor','lock','cover','climate','fan','media_player','person','automation'];
+function renderHaEntities(sec){
+  const wrap=document.createElement('div'); wrap.id='ha-entities';
+  const list=(CONFIG.ha_page&&CONFIG.ha_page.entities)||[];
+  list.forEach((e,i)=>wrap.appendChild(entityCard(e,i)));
+  const add=document.createElement('button'); add.textContent='+ 添加实体';
+  add.onclick=()=>{ wrap.insertBefore(entityCard({entity_id:'',name:'',icon:''}, 'n'+Math.random()), add); };
+  wrap.appendChild(add);
+  return wrap;
+}
+
+// 实体选择器(仿城市选择器):搜实体名 → /api/ha-entities 候选 → 选中写 entity_id;高级可手填图标。
+function entityCard(e, idx){
+  const card=document.createElement('div'); card.className='haent machine'; card.dataset.idx=idx;
+  const domOpts=HA_DOMAINS.map(d=>`<option value="${d}">${d||'全部类型'}</option>`).join('');
+  card.innerHTML=`
+    <input type="hidden" class="he-id" value="${e.entity_id||''}">
+    <div style="display:flex;gap:6px;">
+      <input type="text" class="he-q" placeholder="搜实体名,如 客厅 / 温度" style="flex:1">
+      <select class="he-domain" style="width:108px;flex-shrink:0;padding:8px;border-radius:8px;border:1px solid var(--line);background:#fafaf9;">${domOpts}</select>
+      <button type="button" class="he-go" style="white-space:nowrap;">搜索</button>
+    </div>
+    <div style="font-size:12px;margin-top:5px;">当前:<b class="he-cur-id">${e.entity_id||'(未选择)'}</b></div>
+    <div class="he-results" style="margin-top:4px;"></div>
+    <div class="field" style="margin-top:8px;"><label>显示名</label><input type="text" class="he-name" value="${e.name||''}" placeholder="留空用 HA 名"></div>
+    <details style="margin-top:2px;"><summary style="font-size:12px;color:var(--ink3);cursor:pointer;">高级:手填图标 mdi:xxx</summary>
+      <input type="text" class="he-icon" value="${e.icon||''}" placeholder="如 mdi:lightbulb;留空用 HA 自带" style="margin-top:5px;"></details>
+    <div style="text-align:right;margin-top:8px;"><button onclick="this.closest('.haent').remove()" style="font-size:12px;padding:4px 10px;">删除</button></div>`;
+  const q=card.querySelector('.he-q'), go=card.querySelector('.he-go'),
+        dom=card.querySelector('.he-domain'), box=card.querySelector('.he-results'),
+        hid=card.querySelector('.he-id'), curId=card.querySelector('.he-cur-id'),
+        nameI=card.querySelector('.he-name'), iconI=card.querySelector('.he-icon');
+  function pick(ent){
+    hid.value=ent.entity_id; curId.textContent=ent.entity_id;
+    nameI.placeholder=ent.name||'留空用 HA 名';
+    if(!iconI.value.trim()&&ent.icon) iconI.value=ent.icon;
+    box.innerHTML='';
+  }
+  async function doSearch(){
+    box.innerHTML='<div class="aux" style="font-size:12px;">搜索中…</div>';
+    let j; try{ j=await fetch('/api/ha-entities?q='+encodeURIComponent(q.value.trim())+'&domain='+encodeURIComponent(dom.value)).then(r=>r.json()); }
+    catch(err){ box.innerHTML='<div class="aux" style="font-size:12px;color:#b00;">网络错误</div>'; return; }
+    if(!j.ok){ box.innerHTML=`<div class="aux" style="font-size:12px;color:#b00;">${j.error||'读取失败'}</div>`; return; }
+    if(!j.entities.length){ box.innerHTML='<div class="aux" style="font-size:12px;">无匹配实体</div>'; return; }
+    box.innerHTML = j.truncated ? '<div class="aux" style="font-size:11px;color:var(--ink3);margin-bottom:3px;">结果较多,只显示前 50 条,请细化关键词</div>' : '';
+    j.entities.forEach(ent=>{
+      const b=document.createElement('button'); b.type='button';
+      b.style.cssText='display:block;width:100%;text-align:left;padding:6px 8px;margin-top:3px;border:1px solid var(--line);border-radius:6px;background:#fafaf9;cursor:pointer;font:inherit;';
+      b.innerHTML=`<b>${ent.name}</b> <span class="aux" style="font-size:11px;">${ent.entity_id} · ${ent.domain}${ent.state?(' · '+ent.state):''}</span>`;
+      b.onclick=()=>pick(ent); box.appendChild(b);
+    });
+  }
+  go.onclick=doSearch;
+  q.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); doSearch(); } });
+  return card;
+}
+
+// ---- 收集表单 ----
+function collect(){
+  const out={};
+  for(const sec of SCHEMA){
+    if(sec.key==='devices'||sec.key==='ha_page') continue;
+    out[sec.key]={};
+    for(const f of sec.fields){
+      const el=document.getElementById(`f-${sec.key}-${f.key}`); if(!el) continue;
+      if(f.type==='bool') out[sec.key][f.key]=el.checked;
+      else if(f.type==='int') out[sec.key][f.key]=parseInt(el.value||'0',10);
+      else if(f.type==='float') out[sec.key][f.key]=parseFloat(el.value||'0');
+      else if(f.type==='str_list') out[sec.key][f.key]=el.value.split(',').map(s=>s.trim()).filter(Boolean);
+      else if(f.secret){ if(el.value&&el.value!==MASK) out[sec.key][f.key]=el.value; }
+      else out[sec.key][f.key]=el.value;
+    }
+  }
+  // 设备
+  out.devices={machines:[]};
+  document.querySelectorAll('#machines .machine').forEach(card=>{
+    const g=s=>card.querySelector(s);
+    const fields=[...card.querySelectorAll('.chip.on')].map(c=>c.dataset.f);
+    const allChips=[...card.querySelectorAll('.chip')].length;
+    const m={
+      name:g('.m-name').value, id:g('.m-id').value, mode:g('.m-mode').value,
+      platform:g('.m-platform').value, host:g('.m-host').value,
+      ssh_user:g('.m-user').value, ssh_port:parseInt(g('.m-port').value||'22',10),
+      // 全勾或全不勾 都存空(=全显示)
+      fields: (fields.length===0||fields.length===allChips)?[]:fields,
+    };
+    const pw=g('.m-pw').value; if(pw&&pw!==MASK) m.ssh_password=pw;
+    if(m.name.trim()) out.devices.machines.push(m);
+  });
+  // 智能家居:每张卡片一个实体(没选 entity_id 的空卡片跳过)
+  out.ha_page={entities:[]};
+  document.querySelectorAll('#ha-entities .haent').forEach(card=>{
+    const eid=card.querySelector('.he-id').value.trim();
+    if(!eid) return;
+    out.ha_page.entities.push({
+      entity_id:eid,
+      name:card.querySelector('.he-name').value.trim(),
+      icon:card.querySelector('.he-icon').value.trim(),
+    });
+  });
+  // devices/ha_page 段的标量字段(如 devices.interval)—— 列表控件没收集,这里补
+  for(const sec of SCHEMA){
+    if(sec.key!=='devices' && sec.key!=='ha_page') continue;
+    for(const f of sec.fields){
+      if(f.type==='module_list') continue;
+      const el=document.getElementById(`f-${sec.key}-${f.key}`); if(!el) continue;
+      out[sec.key][f.key] = f.type==='int' ? parseInt(el.value||'0',10)
+                          : f.type==='bool' ? el.checked : el.value;
+    }
+  }
+  return out;
+}
+
+async function save(){
+  const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:collect()})});
+  const j=await r.json(); const eb=document.getElementById('errbox');
+  if(!j.ok){ eb.style.display='block'; eb.textContent='保存失败:\n'+j.errors.join('\n'); return; }
+  eb.style.display='none';
+  const cf=await fetch('/api/config').then(r=>r.json()); CONFIG=cf.config;
+  DISCOVERED=(await fetch('/api/discovered-devices').then(r=>r.json())).devices;
+  renderForm(); updateStatus(j.status); refreshPreview();
+  document.getElementById('status').textContent='✓ 已保存 '+new Date().toLocaleTimeString();
+}
+
+function updateStatus(st){
+  if(!st) return;
+  for(const sec of SCHEMA){
+    const b=document.getElementById('badge-'+sec.key); if(!b) continue;
+    const on=st.enabled&&st.enabled[sec.key];
+    b.textContent=on?'已启用':'未启用'; b.className='badge '+(on?'on':'');
+  }
+}
+
+// ---- 预览 ----
+function renderPreviewControls(){
+  const tabs=document.getElementById('page-tabs'); tabs.innerHTML='';
+  PAGES.forEach(p=>{const b=document.createElement('button');b.textContent=p;b.onclick=()=>{curPage=p;markTabs();refreshPreview();};b.dataset.p=p;tabs.appendChild(b);});
+  const sel=document.getElementById('style-sel'); sel.innerHTML=STYLES.map(s=>`<option>${s}</option>`).join('');
+  markTabs(); refreshPreview();
+}
+function markTabs(){document.querySelectorAll('#page-tabs button').forEach(b=>b.className=b.dataset.p===curPage?'on':'');}
+function refreshPreview(){
+  const style=document.getElementById('style-sel').value;
+  document.getElementById('preview-img').src=`/kindle/preview.png?page=${curPage}&style=${style}&t=${Date.now()}`;
+}
+
+init();
+</script>
+</body>
+</html>

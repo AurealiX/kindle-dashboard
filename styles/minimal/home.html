@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.n-mega{font-size:88px;letter-spacing:-4px;}
+.hr{margin:14px 0;}
+.lab{margin-bottom:9px;}
+.col-l{width:340px;flex-shrink:0;}
+.col-r{flex:1;min-width:0;}
+.wx-cond{font-size:20px;font-weight:500;margin-top:8px;}
+.wx-meta{margin-top:13px;display:flex;flex-wrap:wrap;gap:6px 28px;font-size:13px;color:var(--ink2);font-weight:500;}
+.wx-meta b{font-weight:600;color:var(--ink);}
+.wx-range{margin-top:11px;font-size:15px;font-weight:600;display:flex;gap:26px;}
+.wx-range .lo{color:var(--ink3);font-weight:500;}
+.todo{flex:1;min-height:0;overflow:hidden;}
+.grp{font-size:10px;font-weight:600;letter-spacing:2px;color:var(--ink3);text-transform:uppercase;margin:10px 0 3px;}
+.grp:first-child{margin-top:0;}
+.ti{display:flex;align-items:baseline;gap:12px;padding:5px 0;border-bottom:1px solid var(--line2);}
+.ti .tx{font-size:15px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ti .dt{font-size:12px;color:var(--ink3);margin-left:auto;font-weight:500;flex-shrink:0;}
+.cal{width:100%;border-collapse:collapse;table-layout:fixed;}
+.cal th{font-size:10px;color:var(--ink3);font-weight:600;letter-spacing:1px;padding-bottom:10px;text-align:center;}
+.cal td{text-align:center;vertical-align:middle;height:38px;}
+.cal .d{font-size:16px;font-weight:500;line-height:1;}
+.cal .l{font-size:8px;color:var(--ink4);margin-top:2px;}
+.cal td.today .d{font-weight:700;border-bottom:2px solid var(--ink);display:inline-block;padding-bottom:2px;line-height:1;}
+.cal td.we .d{color:var(--ink4);}
+.cal td.hol .l{color:var(--ink2);font-weight:600;}
+</style></head><body>
+<div class="head"><div class="ttl">首页</div><div class="meta">{{ home.weekday }} · 农历{{ home.lunar }} · {{ home.ganzhi }}{% if home.term %} · {{ home.term }}{% endif %}</div></div>
+<div class="main">
+  <div class="col col-r">
+    <div class="lab">天气</div>
+    <div class="n-mega tnum">{{ home.weather.temp }}°</div>
+    <div class="wx-cond">{{ home.weather.cond }}</div>
+    <div class="wx-meta"><span>体感 <b>{{ home.weather.feels }}°</b></span><span>湿度 <b>{{ home.weather.humidity }}%</b></span><span><b>{{ home.weather.wind }}</b></span></div>
+    <div class="wx-range"><span>今 {{ home.weather.today_range }}</span><span>明 {{ home.weather.tmr_range }} <span class="lo">{{ home.weather.tmr_cond }}</span></span></div>
+    <div class="hr"></div>
+    <div class="lab">提醒事项 <span class="aux">{{ home.reminders.total }} 项待办</span></div>
+    <div class="todo">
+    {% if home.reminders.overdue %}<div class="grp">已过期</div>{% for r in home.reminders.overdue[:2] %}<div class="ti"><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+    {% if home.reminders.today %}<div class="grp">今天</div>{% for r in home.reminders.today[:2] %}<div class="ti"><span class="tx">{{ r.title }}</span></div>{% endfor %}{% endif %}
+    {% if home.reminders.upcoming %}<div class="grp">近期</div>{% for r in home.reminders.upcoming[:3] %}<div class="ti"><span class="tx">{{ r.title }}</span><span class="dt tnum">{{ r.dt }}</span></div>{% endfor %}{% endif %}
+    {% if not home.reminders.overdue and not home.reminders.today and not home.reminders.upcoming %}<div class="ti"><span class="tx" style="color:var(--ink3);">暂无近期提醒</span></div>{% endif %}
+    </div>
+  </div>
+  <div class="col col-l">
+    <div class="lab">{{ home.year }} / {{ "%02d"|format(home.month) }}</div>
+    <table class="cal">
+      <tr><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th></tr>
+      {% for week in home.calendar %}<tr>{% for c in week %}{% if c %}<td class="{% if c.today %}today{% endif %} {% if c.weekend %}we{% endif %} {% if c.holiday %}hol{% endif %}"><div class="d tnum">{{ c.d }}</div><div class="l">{{ c.l }}</div></td>{% else %}<td></td>{% endif %}{% endfor %}</tr>
+      {% endfor %}
+    </table>
+  </div>
+</div>
+<div class="foot"><span>更新于 <span class="tnum">{{ time_hm }}</span></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<span class="tnum">{{ battery.level }}%</span></span><span>首页 · 01 / 05</span></div>
+</body></html>

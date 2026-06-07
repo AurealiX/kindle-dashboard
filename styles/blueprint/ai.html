@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.col-l{width:336px;flex-shrink:0;display:flex;flex-direction:column;}
+.col-r{flex:1;min-width:0;display:flex;flex-direction:column;}
+.cost{margin-top:auto;border-top:1px solid var(--ink);padding-top:10px;}
+.cost .row{display:flex;justify-content:space-between;align-items:baseline;}
+.cost .row + .row{margin-top:6px;}
+.cost .row .l{font-size:11px;color:var(--ink3);font-weight:700;letter-spacing:1px;}
+.tok{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.tok .c{border:1px solid var(--ink);padding:9px 10px;}
+.tok .c .l{font-size:9px;color:var(--ink3);font-weight:700;letter-spacing:1px;margin-bottom:4px;}
+.tok .c .v{font-size:20px;font-weight:700;letter-spacing:-0.5px;}
+.chart-wrap{flex:1;min-height:0;display:flex;flex-direction:column;}
+.chart{flex:1;min-height:0;display:flex;align-items:flex-end;gap:8px;border-bottom:1px solid var(--ink);padding-bottom:1px;}
+.chart .col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+.chart .col .val{font-size:9px;color:var(--ink3);margin-bottom:3px;}
+.chart .col .bars{width:62%;display:flex;flex-direction:column;justify-content:flex-end;height:100%;border:1px solid var(--ink);border-bottom:none;}
+.chart .col .x{font-size:10px;color:var(--ink2);margin-top:4px;font-weight:700;}
+.legend{font-size:10px;color:var(--ink2);display:flex;gap:16px;margin-top:8px;letter-spacing:0.5px;}
+.legend i{display:inline-block;width:13px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
+</style></head><body>
+<div class="sheet"><div class="drawing">
+  <div class="mast"><div><div class="pj">KINDLE-DASH · AI-USAGE</div><div class="ti">AI 用量</div></div><div class="meta tnum">{{ now }}</div></div>
+  <div class="main">
+    <div class="col col-l">
+      <div class="fig"><span class="tag">A.1</span><span class="cap">CLAUDE 配额</span><span class="ln"></span></div>
+      <div class="barrow"><div class="kv"><span class="k">5H</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.five_pct }}%"></i></div></div>
+      <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.week_pct }}%"></i></div></div>
+      <div class="fig mt"><span class="tag">A.2</span><span class="cap">CODEX 配额</span><span class="ln"></span></div>
+      <div class="barrow"><div class="kv"><span class="k">5H</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.cx_five_pct }}%"></i></div></div>
+      <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+      <div class="cost">
+        <div class="row"><span class="l">今日官方</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
+        <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}自定义{% endif %}</span><span class="n-lg tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
+      </div>
+    </div>
+    <div class="vrule"></div>
+    <div class="col col-r">
+      <div class="fig"><span class="tag">A.3</span><span class="cap">TOKENS 累计</span><span class="ln"></span></div>
+      <div class="tok">
+        <div class="c"><div class="l">7D</div><div class="v tnum">{{ ai.tok_7d }}</div></div>
+        <div class="c"><div class="l">30D</div><div class="v tnum">{{ ai.tok_30d }}</div></div>
+        <div class="c"><div class="l">ALL</div><div class="v tnum">{{ ai.tok_all }}</div></div>
+      </div>
+      <div class="fig mt"><span class="tag">A.4</span><span class="cap">近 7 天趋势</span><span class="ln"></span><span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+      <div class="chart-wrap">
+        <div class="chart">
+        {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+        </div>
+        <div class="legend"><span><i class="hatch-a"></i>CLAUDE</span><span><i class="hatch-b"></i>CODEX</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="titleblock">
+    <div class="cell grow"><div class="l">PROJECT</div><div class="v">KINDLE DASHBOARD</div></div>
+    <div class="cell"><div class="l">UPDATED</div><div class="v tnum">{{ time_hm }}</div></div>
+    <div class="cell"><div class="l">{% if battery.charging %}CHARGING{% else %}BATTERY{% endif %}</div><div class="v tnum">{{ battery.level }}%</div></div>
+    <div class="cell"><div class="l">SHEET</div><div class="v">2 / 5</div></div>
+  </div>
+</div></div>
+</body></html>

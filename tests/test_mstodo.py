@@ -1,0 +1,167 @@
+"""Microsoft To Do 采集器测试(全程 mock httpx,不打真网络)。
+
+覆盖:字段归一化、降级、flagged 过滤、分页、token 刷新+轮换、合并。
+登录端点的设备码交互(login_start/poll)依赖真实微软服务,不在单测覆盖。
+"""
+import json
+import time
+import importlib
+
+import pytest
+
+from server.sources import mstodo
+from server.render.build_context import prep_context
+from datetime import datetime
+
+
+# ---------- 假 httpx ----------
+class FakeResp:
+    def __init__(self, data):
+        self._d = data
+    def json(self):
+        return self._d
+    def raise_for_status(self):
+        pass
+
+
+def make_fake_httpx(get=None, post=None):
+    class FakeClient:
+        def __init__(self, *a, **k):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def get(self, url, **k):
+            return get(url, **k)
+        def post(self, url, **k):
+            return post(url, **k)
+    class M:
+        Client = FakeClient
+    return M
+
+
+# ---------- 归一化 ----------
+def test_normalize_field_mapping():
+    t = {"title": "交报告", "status": "notStarted",
+         "dueDateTime": {"dateTime": "2026-06-10T00:00:00.000", "timeZone": "UTC"},
+         "importance": "high", "id": "TID"}
+    lst = {"displayName": "任务", "id": "LID"}
+    r = mstodo._normalize(t, lst)
+    assert r["title"] == "交报告"
+    assert r["completed"] is False
+    assert r["dueDate"].startswith("2026-06-10")
+    assert r["priority"] == 1
+    assert r["list"] == "任务"
+    assert r["source"] == "mstodo"
+    assert r["id"] == "TID" and r["list_id"] == "LID"
+
+
+def test_normalize_completed_and_no_due():
+    r = mstodo._normalize({"title": "x", "status": "completed", "importance": "normal"},
+                          {"displayName": "L", "id": "1"})
+    assert r["completed"] is True
+    assert r["dueDate"] is None
+    assert r["priority"] == 0
+
+
+# ---------- collect ----------
+def test_collect_disabled_returns_none():
+    assert mstodo.collect({"mstodo": {"enabled": False}}) is None
+    assert mstodo.collect({}) is None
+
+
+def test_collect_no_token_returns_none(monkeypatch, tmp_path):
+    monkeypatch.setattr(mstodo, "TOKEN_FILE", str(tmp_path / "none.json"))
+    assert mstodo.collect({"mstodo": {"enabled": True}}) is None
+
+
+def test_collect_merges_and_skips_flagged(monkeypatch):
+    monkeypatch.setattr(mstodo, "_ensure_access_token", lambda cfg: "AT")
+    lists = {"value": [
+        {"displayName": "任务", "id": "L1"},
+        {"displayName": "Flagged Emails", "id": "L2", "wellknownListName": "flaggedEmails"},
+    ]}
+    monkeypatch.setattr(mstodo, "_graph_get", lambda path, at: lists)
+    tasks = {"L1": [{"title": "a", "status": "notStarted"}],
+             "L2": [{"title": "mail", "status": "notStarted"}]}
+    monkeypatch.setattr(mstodo, "_graph_get_all",
+                        lambda path, at: tasks["L1"] if "L1" in path else tasks["L2"])
+
+    # flagged 关闭 → 只剩 L1
+    out = mstodo.collect({"mstodo": {"enabled": True}})
+    titles = [r["title"] for r in out["reminders_mstodo"]]
+    assert titles == ["a"]
+
+    # flagged 打开 → 两个都在
+    out = mstodo.collect({"mstodo": {"enabled": True, "include_flagged_emails": True}})
+    assert sorted(r["title"] for r in out["reminders_mstodo"]) == ["a", "mail"]
+
+
+def test_collect_lists_error_degrades(monkeypatch):
+    monkeypatch.setattr(mstodo, "_ensure_access_token", lambda cfg: "AT")
+    def boom(path, at):
+        raise RuntimeError("graph 500")
+    monkeypatch.setattr(mstodo, "_graph_get", boom)
+    assert mstodo.collect({"mstodo": {"enabled": True}}) is None
+
+
+# ---------- 分页 ----------
+def test_graph_get_all_follows_pagination(monkeypatch):
+    def fake_get(url, **k):
+        if "nextpage" in url:
+            return FakeResp({"value": [{"title": "p2"}]})
+        return FakeResp({"value": [{"title": "p1"}],
+                         "@odata.nextLink": "https://graph.microsoft.com/nextpage"})
+    monkeypatch.setattr(mstodo, "httpx", make_fake_httpx(get=fake_get))
+    items = mstodo._graph_get_all("/me/todo/lists/X/tasks", "AT")
+    assert [i["title"] for i in items] == ["p1", "p2"]
+
+
+# ---------- token 刷新 + 轮换 ----------
+def test_refresh_rotates_and_caches(monkeypatch, tmp_path):
+    tok_file = tmp_path / "tok.json"
+    tok_file.write_text(json.dumps({"refresh_token": "R1"}), encoding="utf-8")
+    monkeypatch.setattr(mstodo, "TOKEN_FILE", str(tok_file))
+
+    calls = {"n": 0}
+    def fake_post(url, **k):
+        calls["n"] += 1
+        return FakeResp({"access_token": "AT1", "expires_in": 3600, "refresh_token": "R2"})
+    monkeypatch.setattr(mstodo, "httpx", make_fake_httpx(post=fake_post))
+
+    at = mstodo._ensure_access_token({"mstodo": {}})
+    assert at == "AT1"
+    saved = json.loads(tok_file.read_text(encoding="utf-8"))
+    assert saved["refresh_token"] == "R2"        # 轮换已保存
+    assert saved["access_token"] == "AT1"
+
+    # 第二次:access token 未过期 → 不再调网络
+    def boom(url, **k):
+        raise AssertionError("不该再刷新")
+    monkeypatch.setattr(mstodo, "httpx", make_fake_httpx(post=boom))
+    assert mstodo._ensure_access_token({"mstodo": {}}) == "AT1"
+    assert calls["n"] == 1
+
+
+def test_refresh_failure_returns_none(monkeypatch, tmp_path):
+    tok_file = tmp_path / "tok.json"
+    tok_file.write_text(json.dumps({"refresh_token": "BAD"}), encoding="utf-8")
+    monkeypatch.setattr(mstodo, "TOKEN_FILE", str(tok_file))
+    monkeypatch.setattr(mstodo, "httpx",
+                        make_fake_httpx(post=lambda url, **k: FakeResp({"error": "invalid_grant"})))
+    assert mstodo._ensure_access_token({"mstodo": {}}) is None
+
+
+# ---------- 合并(build_context) ----------
+def test_build_context_merges_apple_and_mstodo():
+    cache = {
+        "reminders": [{"title": "苹果事", "completed": False, "dueDate": None}],
+        "reminders_mstodo": [{"title": "兔兔事", "completed": False, "dueDate": None},
+                             {"title": "已完成", "completed": True, "dueDate": None}],
+    }
+    ctx = prep_context(datetime(2026, 6, 7, 9, 0), cache, {})
+    rem = ctx["home"]["reminders"]
+    assert rem["total"] == 2          # 两条未完成(已完成的不计)
+    allt = [x["title"] for x in rem["overdue"] + rem["today"] + rem["upcoming"]]
+    assert "苹果事" in allt and "兔兔事" in allt and "已完成" not in allt
