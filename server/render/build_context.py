@@ -295,7 +295,7 @@ def prep_context(now, cache, cfg=None):
             "city": cache.get("weather_city", ""),
             "temp": wn.get("temp","--"), "cond": wn.get("text","--"),
             "feels": wn.get("feelsLike","--"), "humidity": wn.get("humidity","--"),
-            "wind": f"{wn.get('windDir','')}{wn.get('windScale','')}级",
+            "wind": f"{wn.get('windDir','')}{wn.get('windScale','')}" + ("" if en else "级"),
             "today_range": f"{today_wd.get('tempMin','--')}–{today_wd.get('tempMax','--')}°" if today_wd else "--",
             "tmr_range": f"{tmr_wd.get('tempMin','--')}–{tmr_wd.get('tempMax','--')}°" if tmr_wd else "--",
             "tmr_cond": tmr_wd.get("textDay",""),

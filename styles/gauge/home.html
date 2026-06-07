@@ -53,13 +53,13 @@
     </div>
   </div>
   <div class="panel soft col-r">
-    <div class="plate">{{ home.year }} 年 {{ home.month }} 月历</div>
+    <div class="plate">{% if lang=='zh' %}{{ home.year }} {{ t.home_cal_year }} {{ home.month }} {{ t.home_cal_month }}{% else %}{{ home.year }} · {{ home.month }}{% endif %}</div>
     <table class="cal">
-      <tr><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th></tr>
+      <tr><th>{{ t.home_wd_mon }}</th><th>{{ t.home_wd_tue }}</th><th>{{ t.home_wd_wed }}</th><th>{{ t.home_wd_thu }}</th><th>{{ t.home_wd_fri }}</th><th>{{ t.home_wd_sat }}</th><th>{{ t.home_wd_sun }}</th></tr>
       {% for week in home.calendar %}<tr>{% for c in week %}{% if c %}<td class="{% if c.today %}today{% endif %} {% if c.weekend %}we{% endif %} {% if c.holiday %}hol{% endif %}"><div class="d tnum">{{ c.d }}</div><div class="l">{{ c.l }}</div></td>{% else %}<td class="blank"></td>{% endif %}{% endfor %}</tr>
       {% endfor %}
     </table>
   </div>
 </div>
-<div class="foot"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>首页 · 1/5</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.page_home }} · 1/5</span></div>
 </body></html>

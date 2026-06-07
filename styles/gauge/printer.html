@@ -19,38 +19,38 @@
 .idle{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
 .idle .big{font-size:34px;font-weight:800;color:var(--ink);margin-bottom:10px;letter-spacing:-0.5px;}
 </style></head><body>
-<div class="cluster"><div class="ttl"><span class="chip">3DP</span>打印仪表</div><div class="meta tnum">{% if printer %}{{ printer.name }} · {% endif %}{{ now }}</div></div>
+<div class="cluster"><div class="ttl"><span class="chip">3DP</span>{{ t.printer_title }}</div><div class="meta tnum">{% if printer %}{{ printer.name }} · {% endif %}{{ now }}</div></div>
 {% if printer and printer.printing %}
 <div class="main">
   <div class="panel col-l">
-    <div class="plate" style="align-self:flex-start;">作业进度</div>
+    <div class="plate" style="align-self:flex-start;">{{ t.printer_progress }}</div>
     {% set d = [printer.progress,100]|min %}<div class="gz big-gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="6"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="6" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="15" stroke="#000" stroke-width="2.2" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.4" fill="#000"/></svg><div class="gv tnum">{{ printer.progress }}%</div></div>
     <div class="fname">{{ printer.task }}</div>
     <span class="state">{{ printer.state_text }}</span>
-    <div class="layer tnum">第 {{ printer.layer }} / {{ printer.total_layer }} 层</div>
-    <div class="eta tnum">剩余 {{ printer.remaining_text }} · 完成 {{ printer.eta_clock }}</div>
+    <div class="layer tnum">{{ t.printer_layer_prefix }} {{ printer.layer }} / {{ printer.total_layer }}{% if lang=='zh' %} {{ t.printer_layer_suffix }}{% endif %}</div>
+    <div class="eta tnum">{{ t.printer_remaining }} {{ printer.remaining_text }} · {{ t.printer_eta }} {{ printer.eta_clock }}</div>
   </div>
   <div class="panel soft col-r">
-    <div class="plate">温度表盘<span class="aux">0–300 °C</span></div>
+    <div class="plate">{{ t.printer_temp_dial }}<span class="aux">0–300 °C</span></div>
     <div class="tz">
-      {% set d = [(printer.nozzle|int/3.0)|round(1),100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ printer.nozzle }}°</div><div class="cap">喷头</div><div class="sub">目标 {{ printer.nozzle_t }}°C</div></div>
-      {% set d = [(printer.bed|int/3.0)|round(1),100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ printer.bed }}°</div><div class="cap">热床</div><div class="sub">目标 {{ printer.bed_t }}°C</div></div>
+      {% set d = [(printer.nozzle|int/3.0)|round(1),100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ printer.nozzle }}°</div><div class="cap">{{ t.printer_nozzle }}</div><div class="sub">{{ t.printer_target }} {{ printer.nozzle_t }}°C</div></div>
+      {% set d = [(printer.bed|int/3.0)|round(1),100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ printer.bed }}°</div><div class="cap">{{ t.printer_bed }}</div><div class="sub">{{ t.printer_target }} {{ printer.bed_t }}°C</div></div>
     </div>
     <div class="det">
-      <div class="row"><span class="k">打印速度</span><span class="v">{{ printer.speed }}</span></div>
-      <div class="row"><span class="k">材料</span><span class="v">{{ printer.material }}</span></div>
-      <div class="row"><span class="k">预计耗材</span><span class="v tnum">{{ printer.weight }} g</span></div>
-      <div class="row"><span class="k">冷却风扇</span><span class="v tnum">{{ printer.cooling_fan }}%</span></div>
+      <div class="row"><span class="k">{{ t.printer_speed }}</span><span class="v">{{ printer.speed }}</span></div>
+      <div class="row"><span class="k">{{ t.printer_material }}</span><span class="v">{{ printer.material }}</span></div>
+      <div class="row"><span class="k">{{ t.printer_filament }}</span><span class="v tnum">{{ printer.weight }} g</span></div>
+      <div class="row"><span class="k">{{ t.printer_fan }}</span><span class="v tnum">{{ printer.cooling_fan }}%</span></div>
     </div>
   </div>
 </div>
 {% else %}
 <div class="main">
   <div class="panel soft" style="flex:1;">
-    <div class="idle"><div class="big">{{ printer.state_text if printer else "离线" }}</div><div style="font-size:14px;">打印机当前无任务</div>
-    {% if printer %}<div style="margin-top:16px;font-size:13px;font-weight:600;" class="tnum">喷头 {{ printer.nozzle }}°C · 热床 {{ printer.bed }}°C</div>{% endif %}</div>
+    <div class="idle"><div class="big">{{ printer.state_text if printer else t.printer_offline }}</div><div style="font-size:14px;">{{ t.printer_no_task }}</div>
+    {% if printer %}<div style="margin-top:16px;font-size:13px;font-weight:600;" class="tnum">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}</div>
   </div>
 </div>
 {% endif %}
-<div class="foot"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>打印机 · 5/5</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.page_printer }} · 5/5</span></div>
 </body></html>

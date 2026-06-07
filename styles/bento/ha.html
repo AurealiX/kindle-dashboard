@@ -66,7 +66,7 @@
 } -%}
 {%- set cards = ha.cards if ha else [] -%}
 {%- set on_n = cards|selectattr('on')|list|length -%}
-<div class="head"><div class="ttl">家庭概览<span class="sub">智能家居</span></div><div class="meta tnum">{{ now }}</div></div>
+<div class="head"><div class="ttl">{{ t.ha_title }}<span class="sub">{{ t.ha_subtitle }}</span></div><div class="meta tnum">{{ now }}</div></div>
 {% if cards %}
 {%- set n = cards|length -%}
 {%- set ce = (n ** 0.5)|round(0, 'ceil')|int -%}
@@ -85,7 +85,7 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="bento" style="display:flex;"><div class="ha-empty"><div class="big">智能家居</div><div>在设置页搜索并添加 Home Assistant 实体</div></div></div>
+<div class="bento" style="display:flex;"><div class="ha-empty"><div class="big">{{ t.ha_subtitle }}</div><div>{{ t.ha_empty_hint }}</div></div></div>
 {% endif %}
-<div class="foot"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if cards %}{{ on_n }} 开启 · {{ cards|length }} 实体{% endif %}</span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if cards %}{{ on_n }} {{ t.ha_on_suffix }} · {{ cards|length }} {{ t.ha_entities_suffix }}{% endif %}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span></div>
 </body></html>

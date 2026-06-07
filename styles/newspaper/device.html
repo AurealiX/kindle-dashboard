@@ -14,8 +14,8 @@
 .vol .top .k{font-size:11px;}.vol .top .v{font-size:10px;color:var(--ink3);font-weight:600;}
 .empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:14px;font-weight:700;}
 </style></head><body>
-<div class="plate"><div class="name">设备简报<span class="sm">DEVICES</span></div><div class="ed">{{ now }}</div></div>
-<div class="dateline"><span>系统监控 · METRICS</span><span>{% if device.machines %}{{ device.machines|length }} 台在线{% else %}暂无数据{% endif %}</span></div>
+<div class="plate"><div class="name">{{ t.dev_nameplate }}<span class="sm">DEVICES</span></div><div class="ed">{{ now }}</div></div>
+<div class="dateline"><span>{{ t.dev_dateline }} · METRICS</span><span>{% if device.machines %}{{ device.machines|length }} {{ t.dev_online_suffix }}{% else %}{{ t.dev_no_data }}{% endif %}</span></div>
 <div class="main">
 {% if device.machines %}
   <div class="grid">
@@ -23,17 +23,17 @@
     <div class="dev">
       <div class="dhead"><span class="nm">{{ m.name }}</span><span class="st tnum">{{ m.mem_used }} / {{ m.mem_total }}</span></div>
       {% if m.show.cpu %}<div class="bd"><div class="top"><span class="k">CPU</span><span class="v tnum">{{ m.cpu }}%</span></div><div class="bar thin"><i class="hatch-a" style="width:{{ m.cpu }}%"></i></div></div>{% endif %}
-      {% if m.show.mem %}<div class="bd"><div class="top"><span class="k">内存</span><span class="v tnum">{{ m.mem }}%</span></div><div class="bar thin"><i class="hatch-a" style="width:{{ m.mem }}%"></i></div></div>{% endif %}
-      {% if m.show.net or m.show.disk_io %}<div class="io">{% if m.show.net %}<span>网络 <b class="tnum">↓{{ m.net_rx }} ↑{{ m.net_tx }}</b></span>{% endif %}{% if m.show.disk_io %}<span>磁盘 <b class="tnum">↓{{ m.disk_r }} ↑{{ m.disk_w }}</b></span>{% endif %}</div>{% endif %}
-      {% if m.vols %}<div class="vlab">存储空间</div>
+      {% if m.show.mem %}<div class="bd"><div class="top"><span class="k">{{ t.dev_mem }}</span><span class="v tnum">{{ m.mem }}%</span></div><div class="bar thin"><i class="hatch-a" style="width:{{ m.mem }}%"></i></div></div>{% endif %}
+      {% if m.show.net or m.show.disk_io %}<div class="io">{% if m.show.net %}<span>{{ t.dev_network }} <b class="tnum">↓{{ m.net_rx }} ↑{{ m.net_tx }}</b></span>{% endif %}{% if m.show.disk_io %}<span>{{ t.dev_disk }} <b class="tnum">↓{{ m.disk_r }} ↑{{ m.disk_w }}</b></span>{% endif %}</div>{% endif %}
+      {% if m.vols %}<div class="vlab">{{ t.dev_storage }}</div>
         {% for v in m.vols %}<div class="bd vol" style="margin-bottom:6px;"><div class="top"><span class="k">{{ v.name }}</span><span class="v tnum">{{ v.used }} / {{ v.total }} · {{ v.pct }}%</span></div><div class="bar thin"><i class="hatch-a" style="width:{{ v.pct }}%"></i></div></div>{% endfor %}
       {% endif %}
     </div>
   {% endfor %}
   </div>
 {% else %}
-  <div class="empty">暂无设备数据</div>
+  <div class="empty">{{ t.dev_empty }}</div>
 {% endif %}
 </div>
-<div class="folio"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>设备 · A4</span></div>
+<div class="folio"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.foot_page_device }} · A4</span></div>
 </body></html>

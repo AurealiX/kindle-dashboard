@@ -54,8 +54,8 @@
   {% else %}
   <div class="main">
     <div class="col" style="flex:1;">
-      <div class="idle"><div class="big">{{ printer.state_text if printer else "OFFLINE" }}</div><div>打印机当前无任务</div>
-      {% if printer %}<div style="margin-top:16px;font-size:12px;letter-spacing:0.5px;" class="tnum">喷头 {{ printer.nozzle }}°C · 热床 {{ printer.bed }}°C</div>{% endif %}</div>
+      <div class="idle"><div class="big">{{ printer.state_text if printer else "OFFLINE" }}</div><div>{{ t.printer_idle }}</div>
+      {% if printer %}<div style="margin-top:16px;font-size:12px;letter-spacing:0.5px;" class="tnum">{{ t.printer_nozzle_short }} {{ printer.nozzle }}°C · {{ t.printer_bed_short }} {{ printer.bed }}°C</div>{% endif %}</div>
     </div>
   </div>
   {% endif %}

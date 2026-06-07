@@ -13,6 +13,8 @@ import glob
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
 from dataclasses import dataclass
 
 from PIL import Image
@@ -97,14 +99,26 @@ class RenderConfig:
         )
 
 
-def kill_stale_chrome() -> None:
-    """只杀本服务渲染开的 headless chrome —— 它们命令行带 kdash-render 临时目录标记。
-    不再用 `pkill chrome.*headless` 一刀切(会误杀用户机器上别的 headless chrome);
-    按标记杀,只动自己的渲染进程,绝不碰本服务进程或他人进程。"""
+# 渲染串行化:同一时刻只允许一个 Chrome 在跑。
+# 关键修复 —— 预览(网页随手点)和主循环(每 render_interval 一轮 5 页)原先各自并发起 Chrome,
+# 在低核机器(如 MacBook Air)上几个 Chrome 抢 CPU → 每个都卡过 30s 超时 → 触发清理 → 误杀彼此 → 雪崩。
+# 串行化后每次渲染独占资源(基准画布 1~2s 出图),既消除竞态也根除"全部失败"雪崩。
+_RENDER_MUTEX = threading.Lock()
+
+
+def _pkill(pattern: str) -> None:
+    """按命令行标记杀进程(只动带该标记的渲染 Chrome,绝不碰本服务/他人进程或用户自己的浏览器)。"""
     try:
-        subprocess.run(["pkill", "-f", "kdash-render"], capture_output=True, timeout=5)
+        subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True, timeout=5)
     except Exception:
         pass
+
+
+def kill_stale_chrome() -> None:
+    """全局清理本服务**所有**渲染 Chrome(命令行带 kdash-render 标记)。
+    仅用于:服务启动时清上一轮残留、以及主循环整轮全失败的兜底扫除。
+    单次渲染超时只杀自己那次(见 _shot_to_image 的 _pkill(td)),不走这里,避免误伤。"""
+    _pkill("kdash-render")
 
 
 def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
@@ -125,23 +139,32 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
         scale = min(rc.width / bw, rc.height / bh)
         if scale <= 0:
             scale = 1.0
+        # 串行化:同一时刻只跑一个 Chrome(预览与主循环互不抢资源)。
+        # 超时/缺图时只杀**这次**渲染自己的 Chrome 树(td 路径唯一),不碰其它渲染。
         try:
-            subprocess.run([
-                chrome, "--headless", "--no-sandbox", "--disable-gpu",
-                "--no-crashpad", "--disable-crash-reporter",
-                "--disable-dev-shm-usage", "--hide-scrollbars",
-                f"--force-device-scale-factor={scale:.4f}",
-                f"--window-size={bw},{bh}",
-                "--default-background-color=FFFFFFFF",
-                f"--user-data-dir={td}/ud",
-                f"--screenshot={png_path}", f"file://{html_path}",
-            ], capture_output=True, timeout=rc.timeout)
+            with _RENDER_MUTEX:
+                subprocess.run([
+                    chrome, "--headless", "--no-sandbox", "--disable-gpu",
+                    "--no-crashpad", "--disable-crash-reporter",
+                    "--disable-dev-shm-usage", "--hide-scrollbars",
+                    # 防首启卡顿/后台网络等待(全新 user-data-dir 否则会触发首启流程,在弱机上可拖到超时)
+                    "--no-first-run", "--no-default-browser-check",
+                    "--disable-background-networking", "--disable-sync",
+                    "--disable-default-apps", "--disable-component-update",
+                    "--disable-extensions", "--disable-features=Translate,OptimizationHints",
+                    "--mute-audio", "--metrics-recording-only",
+                    f"--force-device-scale-factor={scale:.4f}",
+                    f"--window-size={bw},{bh}",
+                    "--default-background-color=FFFFFFFF",
+                    f"--user-data-dir={td}/ud",
+                    f"--screenshot={png_path}", f"file://{html_path}",
+                ], capture_output=True, timeout=rc.timeout)
         except subprocess.TimeoutExpired:
-            kill_stale_chrome()
+            _pkill(td)      # 只清这次的 Chrome 树,串行下无并发可误伤
             raise
         if not os.path.exists(png_path):
-            kill_stale_chrome()
-            raise FileNotFoundError("Chromium 未产出截图(可能僵尸堆积,已清理,下轮自动恢复)")
+            _pkill(td)
+            raise FileNotFoundError("Chromium 未产出截图(已清理本次进程,下轮自动恢复)")
         mode = "L" if rc.grayscale else "RGB"
         shot = Image.open(png_path).convert(mode)
         # 落到精确的输出尺寸:白底居中贴图。兜住两件事——非 4:3 的 letterbox 留白,
@@ -155,8 +178,18 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
 
 
 def render_html_to_png(html: str, rc: RenderConfig) -> bytes:
-    """横屏 HTML → 旋转后的设备 PNG bytes(诚实失败:抛异常,由上层保留旧页)。"""
-    img = _shot_to_image(html, rc)
+    """横屏 HTML → 旋转后的设备 PNG bytes(诚实失败:抛异常,由上层保留旧页)。
+    失败自动重试一次 —— headless Chrome 偶发漏图/瞬时超时,重试即自愈,
+    避免单次抖动让预览裂图、让该页这一轮空缺。"""
+    img = None
+    for attempt in range(2):
+        try:
+            img = _shot_to_image(html, rc)
+            break
+        except Exception:
+            if attempt == 1:
+                raise
+            time.sleep(0.4)
     rot = _ROT.get(rc.rotate)
     if rot is not None:
         img = img.transpose(rot)

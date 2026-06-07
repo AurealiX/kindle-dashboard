@@ -19,29 +19,29 @@
 .legend{font-size:10px;color:var(--ink2);font-weight:600;display:flex;gap:14px;margin-top:7px;}
 .legend i{display:inline-block;width:13px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
 </style></head><body>
-<div class="cluster"><div class="ttl"><span class="chip">AI</span>用量仪表</div><div class="meta tnum">{{ now }}</div></div>
+<div class="cluster"><div class="ttl"><span class="chip">AI</span>{{ t.ai_title }}</div><div class="meta tnum">{{ now }}</div></div>
 <div class="main">
   <div class="panel col-l">
-    <div class="plate">配额表盘<span class="aux">Claude · Codex</span></div>
+    <div class="plate">{{ t.ai_dial }}<span class="aux">Claude · Codex</span></div>
     <div class="gz-grid">
-      {% set d = [ai.five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.five_pct }}%</div><div class="cap">CC · 5 小时</div><div class="sub">{{ ai.five_reset }}</div></div>
-      {% set d = [ai.week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.week_pct }}%</div><div class="cap">CC · 本周</div><div class="sub">{{ ai.week_reset }}</div></div>
-      {% set d = [ai.cx_five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_five_pct }}%</div><div class="cap">CX · 5 小时</div><div class="sub">{{ ai.cx_five_reset }}</div></div>
-      {% set d = [ai.cx_week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_week_pct }}%</div><div class="cap">CX · 本周</div><div class="sub">{{ ai.cx_week_reset }}</div></div>
+      {% set d = [ai.five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.five_pct }}%</div><div class="cap">{{ t.ai_cc_5h }}</div><div class="sub">{{ ai.five_reset }}</div></div>
+      {% set d = [ai.week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.week_pct }}%</div><div class="cap">{{ t.ai_cc_week }}</div><div class="sub">{{ ai.week_reset }}</div></div>
+      {% set d = [ai.cx_five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_five_pct }}%</div><div class="cap">{{ t.ai_cx_5h }}</div><div class="sub">{{ ai.cx_five_reset }}</div></div>
+      {% set d = [ai.cx_week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_week_pct }}%</div><div class="cap">{{ t.ai_cx_week }}</div><div class="sub">{{ ai.cx_week_reset }}</div></div>
     </div>
     <div class="cost">
-      <div class="row"><span class="l">今日官方</span><span class="n-hero tnum">{{ ai.today_cost }}</span></div>
-      <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}自定义{% endif %}</span><span class="n-lg tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
+      <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-hero tnum">{{ ai.today_cost }}</span></div>
+      <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-lg tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
     </div>
   </div>
   <div class="panel soft col-r">
-    <div class="plate">Tokens 累计</div>
+    <div class="plate">{{ t.ai_tokens }}</div>
     <div class="tok">
-      <div class="c"><div class="l">近 7 天</div><div class="n-lg tnum">{{ ai.tok_7d }}</div></div>
-      <div class="c"><div class="l">近 30 天</div><div class="n-lg tnum">{{ ai.tok_30d }}</div></div>
-      <div class="c"><div class="l">累计</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
+      <div class="c"><div class="l">{{ t.ai_7d }}</div><div class="n-lg tnum">{{ ai.tok_7d }}</div></div>
+      <div class="c"><div class="l">{{ t.ai_30d }}</div><div class="n-lg tnum">{{ ai.tok_30d }}</div></div>
+      <div class="c"><div class="l">{{ t.ai_all }}</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
     </div>
-    <div class="plate" style="margin-top:12px;">近 7 天趋势<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+    <div class="plate" style="margin-top:12px;">{{ t.ai_trend }}<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
     <div class="chart-wrap" style="margin-top:0;">
       <div class="chart">
       {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
@@ -50,5 +50,5 @@
     </div>
   </div>
 </div>
-<div class="foot"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>AI 用量 · 2/5</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.page_ai }} · 2/5</span></div>
 </body></html>

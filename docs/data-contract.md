@@ -19,12 +19,18 @@
 
 | 字段 | 类型 | 例 | 说明 |
 |---|---|---|---|
+| `lang` | str | `zh` / `en` | 界面/看板语言。模板用 `{% if lang == 'zh' %}…{% endif %}` 隐藏中国元素(英文版) |
 | `now` | str | `05/27 14:30` | 日期+时间 |
 | `time_hm` | str | `14:30` | 时:分 |
 | `clock` | str | `14:30:05` | 时:分:秒 |
 | `battery.level` | int\|`--` | `87` | Kindle 电量 |
 | `battery.charging` | bool | | 是否充电 |
 | `battery.has` | bool | | 无电池数据时为 false,模板应据此决定渲不渲电池块 |
+
+> **i18n(中英双语)**:全局开关 `config.server.language`(zh|en,默认 zh)。
+> - **数据值已按语言产出**(模板直接显示,勿再翻):`home.weekday`(周X/Mon-Sun)、`printer.state_text`/`speed`/`remaining_text`、`ai.*_reset` 倒计时、提醒 `.dt` 标签、设备分区名 `总容量`/`Total`。
+> - **中国元素在英文版置空**:`home.lunar`/`ganzhi`/`term` = `""`,日历每格 `l`=`""` 且 `holiday`=False(公历数字保留)。
+> - **静态 UI 文案**:每套风格自带 `styles/<风格>/strings.json`(`{"zh":{...},"en":{...}}`),`render_page` 按 `lang` 注入为模板变量 `t`,模板写 `{{ t.键 }}`(英文缺键回退中文)。zh 值与原模板逐字一致 → 默认中文像素级不变。
 
 ## `home` —— 首页
 

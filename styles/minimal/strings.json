@@ -107,7 +107,7 @@
     "ha_empty_hint": "Add Home Assistant entities in settings",
     "printer_title": "3D Print",
     "printer_progress": "Progress",
-    "printer_layer_unit": "layers",
+    "printer_layer_unit": "",
     "printer_layer_prefix": "Layer",
     "printer_remaining": "Remaining",
     "printer_finish": "Done",

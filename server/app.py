@@ -296,6 +296,7 @@ def _log_rotate_loop():
 @asynccontextmanager
 async def lifespan(_app):
     _ensure_access_token()
+    pipeline.kill_stale_chrome()   # 清上一轮残留的渲染 Chrome(重启即自动扫除僵尸,免手动 pkill)
     for src in SOURCES:
         threading.Thread(target=source_loop, args=(src,), daemon=True).start()
     threading.Thread(target=render_loop, daemon=True).start()

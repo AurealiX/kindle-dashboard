@@ -14,27 +14,27 @@
 .vlab{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--ink3);text-transform:uppercase;margin:6px 0 5px;}
 .empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:15px;font-weight:700;}
 </style></head><body>
-<div class="cluster"><div class="ttl"><span class="chip">SYS</span>设备仪表</div><div class="meta tnum">{{ now }}</div></div>
+<div class="cluster"><div class="ttl"><span class="chip">SYS</span>{{ t.device_title }}</div><div class="meta tnum">{{ now }}</div></div>
 <div class="main">
 {% if device.machines %}
   <div class="grid">
   {% for m in device.machines %}
     <div class="panel dev">
-      <div class="dhead"><span class="nm">{{ m.name }}</span><span class="st tnum">内存 {{ m.mem_used }} / {{ m.mem_total }}</span></div>
+      <div class="dhead"><span class="nm">{{ m.name }}</span><span class="st tnum">{{ t.device_mem }} {{ m.mem_used }} / {{ m.mem_total }}</span></div>
       <div class="dz">
         {% if m.show.cpu %}{% set d = [m.cpu,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ m.cpu }}%</div><div class="cap">CPU</div></div>{% endif %}
-        {% if m.show.mem %}{% set d = [m.mem,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ m.mem }}%</div><div class="cap">内存</div></div>{% endif %}
+        {% if m.show.mem %}{% set d = [m.mem,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ m.mem }}%</div><div class="cap">{{ t.device_mem }}</div></div>{% endif %}
       </div>
-      {% if m.show.net or m.show.disk_io %}<div class="io">{% if m.show.net %}<div class="m"><div class="l">网络</div><div class="v tnum">↓{{ m.net_rx }} ↑{{ m.net_tx }}</div></div>{% endif %}{% if m.show.disk_io %}<div class="m"><div class="l">磁盘</div><div class="v tnum">↓{{ m.disk_r }} ↑{{ m.disk_w }}</div></div>{% endif %}</div>{% endif %}
-      {% if m.vols %}<div class="vlab">存储空间</div>
+      {% if m.show.net or m.show.disk_io %}<div class="io">{% if m.show.net %}<div class="m"><div class="l">{{ t.device_net }}</div><div class="v tnum">↓{{ m.net_rx }} ↑{{ m.net_tx }}</div></div>{% endif %}{% if m.show.disk_io %}<div class="m"><div class="l">{{ t.device_disk }}</div><div class="v tnum">↓{{ m.disk_r }} ↑{{ m.disk_w }}</div></div>{% endif %}</div>{% endif %}
+      {% if m.vols %}<div class="vlab">{{ t.device_storage }}</div>
         {% for v in m.vols %}<div class="bd"><div class="top"><span class="k">{{ v.name }}</span><span class="v tnum">{{ v.used }} / {{ v.total }} · {{ v.pct }}%</span></div><div class="bar"><i style="width:{{ v.pct }}%"></i></div></div>{% endfor %}
       {% endif %}
     </div>
   {% endfor %}
   </div>
 {% else %}
-  <div class="panel soft" style="flex:1;"><div class="empty">暂无设备数据</div></div>
+  <div class="panel soft" style="flex:1;"><div class="empty">{{ t.device_empty }}</div></div>
 {% endif %}
 </div>
-<div class="foot"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>设备 · 4/5</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.page_device }} · 4/5</span></div>
 </body></html>

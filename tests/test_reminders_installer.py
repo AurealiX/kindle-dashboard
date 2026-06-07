@@ -102,7 +102,9 @@ def test_menubar_is_icon_only_with_autostart_toggle():
     assert "● 看板" not in text
     assert "○ 看板" not in text
     assert 'title=""' in text or 'title = ""' in text
-    assert 'rumps.MenuItem("开机自启"' in text
+    # 菜单栏已双语:autostart 文案进 MENU 字典(中英都在)+ 语言切换子菜单
+    assert '"开机自启"' in text and '"Start at login"' in text
+    assert "_set_lang" in text
     assert "item.state = 1 if checked else 0" in text
     assert 'kwargs["template"] = True' in text
     assert "Resampling" in text

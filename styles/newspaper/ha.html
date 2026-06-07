@@ -62,8 +62,8 @@
 } -%}
 {%- set cards = ha.cards if ha else [] -%}
 {%- set on_n = cards|selectattr('on')|list|length -%}
-<div class="plate"><div class="name">家居快报<span class="sm">SMART HOME</span></div><div class="ed">{{ now }}</div></div>
-<div class="dateline"><span>HOME ASSISTANT · 实体墙</span><span>{% if cards %}{{ on_n }} 开启 / {{ cards|length }} 实体{% endif %}</span></div>
+<div class="plate"><div class="name">{{ t.ha_nameplate }}<span class="sm">SMART HOME</span></div><div class="ed">{{ now }}</div></div>
+<div class="dateline"><span>HOME ASSISTANT · {{ t.ha_dateline_wall }}</span><span>{% if cards %}{{ on_n }} {{ t.ha_on }} / {{ cards|length }} {{ t.ha_entities }}{% endif %}</span></div>
 {% if cards %}
 {%- set n = cards|length -%}
 {%- set ce = (n ** 0.5)|round(0, 'ceil')|int -%}
@@ -77,7 +77,7 @@
 {% endfor %}
 </div>
 {% else %}
-<div class="haempty"><div class="big">智能家居</div><div>在设置页添加 Home Assistant 实体</div></div>
+<div class="haempty"><div class="big">{{ t.ha_empty_big }}</div><div>{{ t.ha_empty_hint }}</div></div>
 {% endif %}
-<div class="folio"><span>更新于 <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}充电 {% else %}电量 {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>家居 · HA</span></div>
+<div class="folio"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.foot_page_ha }} · HA</span></div>
 </body></html>
