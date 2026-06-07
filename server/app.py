@@ -8,6 +8,7 @@ import io
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import threading
@@ -25,7 +26,30 @@ from server.render.build_context import prep_context
 from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONFIG_PATH = os.environ.get("KINDLE_CONFIG", os.path.join(REPO_ROOT, "config.yaml"))
+
+
+def _resolve_config_path(env=None, new_default=None, old_default=None):
+    """配置文件路径 —— **外置到仓库外**(`~/.config/kindle-dashboard/config.yaml`),
+    这样 git 升级 / 重装 / 删库重拉都不丢用户配置(凭据/城市/设备全在)。
+    `KINDLE_CONFIG` 环境变量可覆盖。
+    自动迁移:外置位置还没有、但仓库内有旧 `config.yaml` 时,搬出来一份(老用户无感)。"""
+    env = env if env is not None else os.environ.get("KINDLE_CONFIG")
+    if env:
+        return env
+    new = new_default or os.path.expanduser("~/.config/kindle-dashboard/config.yaml")
+    old = old_default if old_default is not None else os.path.join(REPO_ROOT, "config.yaml")
+    if not os.path.exists(new) and old and os.path.exists(old):
+        try:
+            os.makedirs(os.path.dirname(new), exist_ok=True)
+            shutil.copy2(old, new)
+            print(f"[config] 已把配置迁移到 {new}(以后升级/重装不再丢设置)")
+        except Exception as e:
+            print(f"[config] 迁移失败,沿用旧路径 {old}: {e}")
+            return old
+    return new
+
+
+CONFIG_PATH = _resolve_config_path()
 WEB_DIR = os.path.join(REPO_ROOT, "web")
 DATA_DIR = os.environ.get("KINDLE_DATA_DIR", os.path.join(REPO_ROOT, "data"))
 APPLE_REMINDERS_CACHE = os.environ.get(
@@ -167,6 +191,30 @@ def _lan_ips():
     # 代理/VPN 的 198.18.x 之类垫底,recommended=ips[0] 才不会误选虚拟网卡地址。
     ips.sort(key=_lan_priority)
     return ips
+
+
+def _local_hostname_url(scheme, port):
+    """本机 mDNS `.local` 地址(如 http://Xxx.local:8585)。
+    支持 mDNS 的设备(多数 Mac / Linux / 手机)用它当看板地址,可**绕开 IP 漂移**(IP 变了名字不变);
+    不支持 mDNS 的设备(如部分 Kindle busybox)忽略即可。取不到名字则返回 ''(不臆造)。"""
+    name = ""
+    try:                                  # macOS:LocalHostName 就是 .local 名(不含后缀)
+        r = subprocess.run(["scutil", "--get", "LocalHostName"],
+                           capture_output=True, text=True, timeout=2)
+        if r.returncode == 0:
+            name = r.stdout.strip()
+    except Exception:
+        pass
+    if not name:                          # 非 macOS:仅当主机名本身就是 .local 才用,不凭空造
+        try:
+            h = socket.gethostname().strip()
+            if h.endswith(".local"):
+                name = h[:-6]
+        except Exception:
+            pass
+    if not name or any(c in name for c in " \t/\\"):
+        return ""
+    return f"{scheme}://{name}.local:{port}"
 
 
 _load_apple_reminders_cache()
@@ -573,6 +621,9 @@ def api_server_url(request: Request):
     for url in [recommended, origin] + lan_urls:
         if url and url not in candidates:
             candidates.append(url)
+    local_url = _local_hostname_url(scheme, port)   # mDNS .local:支持的设备可选,绕开 IP 漂移
+    if local_url and local_url not in candidates:
+        candidates.append(local_url)
     return {
         "origin": origin,
         "recommended": recommended,

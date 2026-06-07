@@ -23,14 +23,17 @@ bash installers/macos/install.sh
 - **渲染引擎**:没检测到 Chrome 时,问是否自动下载内置 chromium(playwright,约 150MB,装进 venv、不动系统)。选 Y 即可,无需自己装 Chrome。
 - **AI 用量统计**:问是否启用(见下「AI 用量」);选启用会自动检测 Node + ccusage,缺了再安装,不用你手动装。
 
-**菜单栏程序**:装完后 Mac 顶部状态栏只显示 Kindle 小图标,不显示「看板」文字。点开可看运行状态、打开设置页、重启/启停服务,也可用「开机自启」勾选项控制主服务下次登录是否自动启动。安装脚本会生成一个本地 `LSUIElement` app bundle,只显示在顶部状态栏,不会在 Dock 里显示 Python 图标。依赖 `rumps`,install.sh 会自动装(老环境的 venv 若缺它,重跑 install.sh 即补上)。
+**菜单栏程序**:装完后 Mac 顶部状态栏只显示 Kindle 小图标,不显示「看板」文字。点开可看运行状态、当前版本、打开设置页、重启/启停服务、**检查更新**,也可用「开机自启」勾选项控制主服务下次登录是否自动启动。安装脚本会生成一个本地 `LSUIElement` app bundle,只显示在顶部状态栏,不会在 Dock 里显示 Python 图标。依赖 `rumps`,install.sh 会自动装(老环境的 venv 若缺它,重跑 install.sh 即补上)。
+
+**配置文件位置**:真实配置在**仓库外** `~/.config/kindle-dashboard/config.yaml`(`KINDLE_CONFIG` 环境变量可覆盖)。这样升级 / 重装 / 删库重拉**都不丢设置**;若老版本把 `config.yaml` 放在仓库内,首次启动会自动迁移过去。
 
 ### 更新已部署的服务(代码有新版时)
-配置改动网页保存即热重载;但 **Python 代码更新必须重启进程**才生效。步骤:
-1. 拿到最新代码(git 用户 `git pull`;手动同步则把最新文件覆盖到本地项目目录)。
-2. 重新跑 `bash installers/macos/install.sh`(更新依赖+重启+自检),或只想重启用 `bash installers/macos/restart.sh`(主服务+菜单栏一并重启)。`config.yaml` 已存在则保留,不覆盖你的设置。
-3. 验证新代码已上线:浏览器开 `http://<本机IP>:端口/health`,或某新端点确认。
+配置改动网页保存即热重载;但 **Python 代码更新必须重启进程**才生效。两种方式:
+- **菜单栏一键(推荐)**:点顶部菜单栏图标 → **检查更新** → 有新版会提示,点「升级」自动 `git pull --ff-only` + 重启(配置在仓库外,升级不动你的设置)。
+- **命令行**:`cd ~/kindle-dashboard && git pull` 后跑 `bash installers/macos/restart.sh`(主服务+菜单栏一并重启),或重跑 `bash installers/macos/install.sh`(更新依赖+重启+自检)。
+- 验证:浏览器开 `http://<本机IP>:端口/health`。
 > ⚠️ 不要直接在网络共享盘(SMB/NFS,Mac 上的 `/Volumes/...`)里跑服务:venv 在网络盘建不干净。务必先把项目拷到本地盘(如 `~/kindle-dashboard`)再装/更新。
+> 在线升级要求看板是用 `git clone` 装的(非 git 目录菜单栏会提示无法在线升级,改用命令行覆盖)。
 
 ## 二、各数据源配置
 

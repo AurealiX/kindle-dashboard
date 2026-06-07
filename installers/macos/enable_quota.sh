@@ -13,7 +13,7 @@
 # 测试用:KINDLE_SKIP_AGENT=1 只做能在非 Mac 验证的部分,跳过 statusLine 写入与 launchd。
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-CONFIG="${KINDLE_CONFIG:-$REPO/config.yaml}"
+CONFIG="${KINDLE_CONFIG:-$HOME/.config/kindle-dashboard/config.yaml}"
 PY="$REPO/.venv/bin/python"; [ -x "$PY" ] || PY="$(command -v python3)"
 QDIR="$REPO/installers/macos/quota"
 LABEL="com.kindle-dashboard.codex-quota"

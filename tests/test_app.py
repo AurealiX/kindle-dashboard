@@ -225,6 +225,44 @@ def test_lan_priority_demotes_proxy_tun():
     assert appmod._lan_priority("198.18.0.1") > appmod._lan_priority("10.0.0.8")
 
 
+def test_config_path_external_with_auto_migration(tmp_path):
+    """配置外置:KINDLE_CONFIG 覆盖优先;新位置缺、旧仓库内有 → 自动迁移搬出来。"""
+    import server.app as appmod
+    # 1) 环境变量覆盖,直接用
+    assert appmod._resolve_config_path(env="/custom/c.yaml") == "/custom/c.yaml"
+    old = tmp_path / "repo" / "config.yaml"
+    old.parent.mkdir()
+    old.write_text("server: {port: 9}\n", encoding="utf-8")
+    # 2) 新位置不存在 + 旧存在 → 迁移(连同建目录),返回新路径且内容搬过去
+    new = tmp_path / "ext" / "kindle-dashboard" / "config.yaml"
+    got = appmod._resolve_config_path(env="", new_default=str(new), old_default=str(old))
+    assert got == str(new)
+    assert new.read_text(encoding="utf-8") == "server: {port: 9}\n"
+    # 3) 新位置已存在 → 不迁移、不覆盖
+    new2 = tmp_path / "ext2.yaml"
+    new2.write_text("keep: me\n", encoding="utf-8")
+    assert appmod._resolve_config_path(env="", new_default=str(new2), old_default=str(old)) == str(new2)
+    assert new2.read_text(encoding="utf-8") == "keep: me\n"
+    # 4) 新旧都没有 → 返回新路径(不报错,服务后续全默认)
+    none_old = tmp_path / "nope.yaml"
+    new3 = tmp_path / "ext3.yaml"
+    assert appmod._resolve_config_path(env="", new_default=str(new3), old_default=str(none_old)) == str(new3)
+
+
+def test_server_url_includes_local_mdns_candidate():
+    """.local mDNS 候选:支持 mDNS 的设备(Mac/Linux/手机)可选它当看板地址,绕开 IP 漂移;
+    出现在 candidates 供设置页 agent 命令下拉选,但**不抢 recommended**(默认仍用 IP,兼容不支持 mDNS 的设备)。"""
+    import server.app as appmod
+    old = appmod._local_hostname_url
+    appmod._local_hostname_url = lambda scheme, port: f"{scheme}://mymac.local:{port}"
+    try:
+        j = client.get("/api/server-url", headers={"host": "127.0.0.1:8585"}).json()
+    finally:
+        appmod._local_hostname_url = old
+    assert "http://mymac.local:8585" in j["candidates"]
+    assert j["recommended"] != "http://mymac.local:8585"
+
+
 def test_styles_endpoint():
     j = client.get("/api/styles").json()
     assert "style_a" in j["styles"] and "home" in j["pages"]

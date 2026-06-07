@@ -13,7 +13,7 @@
 # 测试用:KINDLE_SKIP_AGENT=1 只改配置、跳过 launchd 与授权(供 CI/非 Mac 验证)。
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-CONFIG="${KINDLE_CONFIG:-$REPO/config.yaml}"
+CONFIG="${KINDLE_CONFIG:-$HOME/.config/kindle-dashboard/config.yaml}"
 PY="$REPO/.venv/bin/python"; [ -x "$PY" ] || PY="$(command -v python3)"
 SYNC_LABEL="com.kindle-dashboard.reminders"
 SYNC_PLIST="$HOME/Library/LaunchAgents/$SYNC_LABEL.plist"

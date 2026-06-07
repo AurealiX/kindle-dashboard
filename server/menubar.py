@@ -12,11 +12,15 @@ import webbrowser
 
 import rumps
 
+from server import updater
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ICON_PATH = os.path.join(REPO, "data", "menubar-icon.png")
 SERVICE_LABEL = "com.kindle-dashboard"
 PLIST = os.path.expanduser(f"~/Library/LaunchAgents/{SERVICE_LABEL}.plist")
-CONFIG_PATH = os.path.join(REPO, "config.yaml")
+RESTART_SH = os.path.join(REPO, "installers", "macos", "restart.sh")
+# 配置已外置到仓库外(与服务一致),菜单栏读写语言/端口/令牌都用这个路径。
+CONFIG_PATH = os.environ.get("KINDLE_CONFIG") or os.path.expanduser("~/.config/kindle-dashboard/config.yaml")
 
 # 菜单文案双语:zh 值与改动前完全一致(回归底线)。
 MENU = {
@@ -38,6 +42,18 @@ MENU = {
         "restart_hint_title": "重开菜单栏生效",
         "restart_hint_msg": "语言已切换,请退出并重新打开菜单栏以应用。",
         "plist_not_found": "未找到服务 plist:{path}",
+        "check_update": "检查更新",
+        "version": "版本",
+        "checking": "正在检查更新…",
+        "up_to_date_title": "已是最新",
+        "up_to_date_msg": "当前已是最新版本({v})。",
+        "update_avail_title": "有新版本",
+        "update_avail_msg": "落后 {n} 个更新({cur} → {latest})。现在升级?\n(升级会拉取最新代码并重启服务,不会动你的配置)",
+        "update_fail_title": "检查更新失败",
+        "upgrade_btn": "升级",
+        "later_btn": "以后再说",
+        "upgrade_ok_title": "升级完成",
+        "upgrade_fail_title": "升级失败",
     },
     "en": {
         "status_checking": "Status: checking",
@@ -57,6 +73,18 @@ MENU = {
         "restart_hint_title": "Restart menu bar to apply",
         "restart_hint_msg": "Language changed. Quit and reopen the menu bar to apply.",
         "plist_not_found": "Service plist not found: {path}",
+        "check_update": "Check for updates",
+        "version": "Version",
+        "checking": "Checking for updates…",
+        "up_to_date_title": "Up to date",
+        "up_to_date_msg": "You're on the latest version ({v}).",
+        "update_avail_title": "Update available",
+        "update_avail_msg": "{n} update(s) behind ({cur} → {latest}). Upgrade now?\n(Pulls latest code and restarts the service; your config is untouched.)",
+        "update_fail_title": "Update check failed",
+        "upgrade_btn": "Upgrade",
+        "later_btn": "Later",
+        "upgrade_ok_title": "Upgrade complete",
+        "upgrade_fail_title": "Upgrade failed",
     },
 }
 
@@ -141,7 +169,7 @@ def _set_service_autostart(enabled):
 def _port():
     try:
         import yaml
-        with open(os.path.join(REPO, "config.yaml"), encoding="utf-8") as f:
+        with open(CONFIG_PATH, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
         return int(cfg.get("server", {}).get("port", 8585))
     except Exception:
@@ -214,6 +242,9 @@ class DashboardBar(rumps.App):
             rumps.MenuItem(t["restart"], callback=self._restart),
             rumps.MenuItem(t["start"], callback=self._start),
             rumps.MenuItem(t["stop"], callback=self._stop),
+            None,
+            rumps.MenuItem(f"{t['version']}: {updater.current_version(REPO)}"),  # 无回调=仅显示
+            rumps.MenuItem(t["check_update"], callback=self._check_update),
             None, lang_menu, None,
             rumps.MenuItem(t["quit"], callback=self._quit),
         ]
@@ -254,6 +285,28 @@ class DashboardBar(rumps.App):
         _set_checked(self.lang_zh_item, lang == "zh")
         _set_checked(self.lang_en_item, lang == "en")
         rumps.alert(t["restart_hint_title"], t["restart_hint_msg"])
+
+    def _check_update(self, _):
+        """检查更新 → 落后则询问是否升级 → 升级(git pull + 重启)。
+        同步执行(点击后菜单栏会短暂无响应,几秒~几十秒,完成弹结果)。"""
+        t = MENU[self.lang]
+        info = updater.check_for_update(REPO)
+        if not info.get("ok"):
+            rumps.alert(t["update_fail_title"], info.get("error", ""))
+            return
+        if info.get("behind", 0) <= 0:
+            rumps.alert(t["up_to_date_title"], t["up_to_date_msg"].format(v=info.get("current", "?")))
+            return
+        resp = rumps.alert(
+            t["update_avail_title"],
+            t["update_avail_msg"].format(n=info["behind"], cur=info.get("current", "?"),
+                                         latest=info.get("latest", "?")),
+            ok=t["upgrade_btn"], cancel=t["later_btn"])
+        if resp != 1:
+            return
+        ok, msg = updater.do_upgrade(REPO, restart_script=RESTART_SH)
+        rumps.alert(t["upgrade_ok_title"] if ok else t["upgrade_fail_title"], msg)
+        self.refresh()
 
     def _open(self, _):
         tok = ""

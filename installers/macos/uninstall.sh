@@ -25,12 +25,14 @@ launchctl unload "$PLIST" 2>/dev/null || true
 rm -f "$PLIST"
 echo "✓ 服务与菜单栏已停止,开机自启已移除"
 
+CONFIG="${KINDLE_CONFIG:-$HOME/.config/kindle-dashboard/config.yaml}"
 if [ "$1" = "--purge" ]; then
-  echo "==> --purge:删除虚拟环境与运行数据(保留 config.yaml.bak)..."
-  [ -f "$REPO/config.yaml" ] && cp "$REPO/config.yaml" "$REPO/config.yaml.bak" && echo "  config.yaml 已备份为 config.yaml.bak"
+  echo "==> --purge:删除虚拟环境与运行数据..."
   rm -rf "$REPO/.venv" "$REPO/data"
   echo "✓ 已清理 .venv 和 data/"
+  echo "  你的配置在仓库外($CONFIG),--purge 不动它;要连配置一起删:rm -rf \"$(dirname "$CONFIG")\""
 else
-  echo "  (保留 config.yaml、.venv、data/;如需彻底清理加 --purge)"
+  echo "  (保留 .venv、data/ 与配置;如需清理运行数据加 --purge)"
 fi
+echo "  配置文件位置:$CONFIG(在仓库外,升级/重装/删库重拉都不丢)"
 echo "卸载完成。"

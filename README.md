@@ -86,9 +86,10 @@ Kindle 当瘦客户端,只定时拉一张渲染好的 PNG 刷上屏;采集、聚
 
 见上「🚀 一键部署 ①」。手动起服务(调试用):`.venv/bin/python -m server.run`。
 
-- 配置文件:仓库根 `config.yaml`(首次从 `config.example.yaml` 生成,在 `.gitignore` 里,不入库)
+- 配置文件:**存在仓库外** `~/.config/kindle-dashboard/config.yaml`(`KINDLE_CONFIG` 可覆盖)——这样**升级 / 重装 / 删库重拉都不会丢你的设置**;老版本放在仓库内的会自动迁移过去
 - 日志:`data/*.log`,服务自动轮转(超 5MB 截断留最近 1MB),长期跑不爆盘
 - **访问令牌**:首次启动自动生成,存 `config.yaml` 的 `server.access_token`,防同 WiFi 他人窥探/篡改设置页。**用带令牌的链接打开设置页**;Kindle 拉图、设备上报、`/health` 豁免,不受影响
+- **在线升级**:Mac 顶部菜单栏 →「检查更新」,有新版点「升级」自动 `git pull` + 重启(配置在仓库外,升级不丢设置)
 
 ### 2. 网页设置
 
@@ -235,9 +236,10 @@ The same Home page in different built-in skins (**7 total**):
 
 See "🚀 One-command deploy ①" above. To run manually (for debugging): `.venv/bin/python -m server.run`.
 
-- Config file: `config.yaml` at the repo root (generated from `config.example.yaml` on first run; gitignored, never committed)
+- Config file: **stored outside the repo** at `~/.config/kindle-dashboard/config.yaml` (override with `KINDLE_CONFIG`) — so **upgrades / reinstalls / delete-and-reclone never lose your settings**; an old in-repo `config.yaml` is auto-migrated
 - Logs: `data/*.log`, auto-rotated by the service (truncated to the last 1MB past 5MB) so long runs won't fill the disk
 - **Access token**: auto-generated on first start, stored in `server.access_token` of `config.yaml`, to keep others on the same WiFi from snooping/tampering with the settings page. **Open the settings page via the token link**; Kindle image fetch, device reporting, and `/health` are exempt.
+- **Online upgrade**: Mac menu bar → "Check for updates"; if a new version exists, click "Upgrade" to auto `git pull` + restart (config lives outside the repo, so upgrades never touch your settings).
 
 ### 2. Configure via web
 

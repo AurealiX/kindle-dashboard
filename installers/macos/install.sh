@@ -54,15 +54,19 @@ else
   esac
 fi
 
-# 4. config.yaml(已存在则不覆盖,保护用户配置)
-if [ ! -f "$REPO/config.yaml" ]; then
-  cp "$REPO/config.example.yaml" "$REPO/config.yaml" && echo "✓ 已生成 config.yaml(从示例)"
+# 4. config.yaml —— 外置到仓库外(~/.config/kindle-dashboard/),升级/重装/删库重拉都不丢配置。
+CONFIG="${KINDLE_CONFIG:-$HOME/.config/kindle-dashboard/config.yaml}"
+mkdir -p "$(dirname "$CONFIG")"
+if [ -f "$CONFIG" ]; then
+  echo "✓ 配置已存在,保留:$CONFIG"
+elif [ -f "$REPO/config.yaml" ]; then
+  cp "$REPO/config.yaml" "$CONFIG" && echo "✓ 已把仓库内旧 config.yaml 迁移到 $CONFIG(以后不再丢)"
 else
-  echo "✓ config.yaml 已存在,保留"
+  cp "$REPO/config.example.yaml" "$CONFIG" && echo "✓ 已生成配置(从示例):$CONFIG"
 fi
 mkdir -p "$REPO/data"
 
-PORT=$("$PY" -c "import yaml;print((yaml.safe_load(open('$REPO/config.yaml')) or {}).get('server',{}).get('port',8585))" 2>/dev/null || echo 8585)
+PORT=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('server',{}).get('port',8585))" 2>/dev/null || echo 8585)
 
 # 4b. AI 用量统计(可选)—— 询问 + 自动检测/安装 Node + ccusage(Node 不再问用户)
 echo
@@ -110,7 +114,7 @@ case "$ai_ans" in
       fi
       "$PY" - <<PYEOF
 import yaml
-p = "$REPO/config.yaml"
+p = "$CONFIG"
 c = yaml.safe_load(open(p, encoding="utf-8")) or {}
 c.setdefault("ai_usage", {})["enabled"] = True
 yaml.safe_dump(c, open(p, "w", encoding="utf-8"), allow_unicode=True, sort_keys=False)
@@ -134,7 +138,7 @@ case "$dev_ans" in
     case "$dev_int" in ''|*[!0-9]*) dev_int=30;; esac
     [ "$dev_int" -lt 5 ] 2>/dev/null && dev_int=30
     DEV_NAME=$(scutil --get LocalHostName 2>/dev/null || hostname 2>/dev/null || echo "这台Mac")
-    "$PY" - "$REPO/config.yaml" "$DEV_NAME" "$dev_int" <<'PYEOF'
+    "$PY" - "$CONFIG" "$DEV_NAME" "$dev_int" <<'PYEOF'
 import sys, yaml
 p, name, interval = sys.argv[1], sys.argv[2], int(sys.argv[3])
 c = yaml.safe_load(open(p, encoding="utf-8")) or {}
@@ -169,7 +173,7 @@ cat > "$PLIST" <<EOF
   <key>WorkingDirectory</key><string>$REPO</string>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>KINDLE_CONFIG</key><string>$REPO/config.yaml</string>
+    <key>KINDLE_CONFIG</key><string>$CONFIG</string>
     <key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
   </dict>
   <key>RunAtLoad</key><true/>
@@ -227,7 +231,7 @@ case "$quota_ans" in
     if echo "$q_int" | grep -q '^[0-9][0-9]*$' && [ "$q_int" -ge 60 ]; then
       "$PY" - <<PYEOF
 import yaml
-p = "$REPO/config.yaml"
+p = "$CONFIG"
 c = yaml.safe_load(open(p, encoding="utf-8")) or {}
 c.setdefault("ai_usage", {})["codex_quota_interval"] = $q_int
 yaml.safe_dump(c, open(p, "w", encoding="utf-8"), allow_unicode=True, sort_keys=False)
@@ -273,7 +277,7 @@ EOF
   cat > "$MB_EXEC" <<EOF
 #!/bin/bash
 cd "$REPO" || exit 1
-export KINDLE_CONFIG="$REPO/config.yaml"
+export KINDLE_CONFIG="$CONFIG"
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin"
 exec "$PY" -m server.menubar
 EOF
@@ -287,7 +291,7 @@ EOF
   <key>ProgramArguments</key>
   <array><string>$MB_EXEC</string></array>
   <key>WorkingDirectory</key><string>$REPO</string>
-  <key>EnvironmentVariables</key><dict><key>KINDLE_CONFIG</key><string>$REPO/config.yaml</string></dict>
+  <key>EnvironmentVariables</key><dict><key>KINDLE_CONFIG</key><string>$CONFIG</string></dict>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>$REPO/data/menubar.log</string>
   <key>StandardErrorPath</key><string>$REPO/data/menubar.log</string>
@@ -304,7 +308,7 @@ fi
 get_ip(){ for i in en0 en1 en2 en3 en4; do ip=$(ipconfig getifaddr $i 2>/dev/null); [ -n "$ip" ] && { echo "$ip"; return; }; done; }
 IP=$(get_ip)
 # 读访问令牌(服务首次启动自动生成,写进 config.yaml);设置页链接带上它才能打开
-TOKEN=$("$PY" -c "import yaml;print((yaml.safe_load(open('$REPO/config.yaml')) or {}).get('server',{}).get('access_token','') or '')" 2>/dev/null || echo "")
+TOKEN=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('server',{}).get('access_token','') or '')" 2>/dev/null || echo "")
 Q=""; [ -n "$TOKEN" ] && Q="?token=$TOKEN"
 echo "✓ 服务已启动并自检通过(开机自启已设置)"
 echo
