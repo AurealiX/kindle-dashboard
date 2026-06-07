@@ -14,7 +14,7 @@ bash installers/macos/install.sh
 .venv/bin/python -m server.run     # 读 config.yaml 的端口,绑 0.0.0.0
 ```
 
-- 配置文件:仓库根 `config.yaml`(首次从 `config.example.yaml` 生成)
+- 配置文件:**仓库外** `~/.config/kindle-dashboard/config.yaml`(首次从 `config.example.yaml` 生成,详见下「配置文件位置」)
 - 日志:`data/*.log`(service / menubar / codex-quota / reminders);**服务自动轮转**——超 5MB 截断只留最近 1MB,长期跑不爆盘,无需手动清。
 - 改端口需重启服务;其余配置网页保存即热重载
 - **访问令牌**(防同 WiFi 他人访问设置页):首次启动自动生成,存 `config.yaml` 的 `server.access_token`;`install.sh` 装完会打印 `http://<IP>:端口/setup?token=...`,**用这个带令牌的链接打开设置页**(或点菜单栏「打开设置页」)。`/api/*` 与预览需令牌;**Kindle 拉图(`/kindle/frame.png`)、设备上报、`/health` 豁免**,不受影响。令牌留空=不鉴权(不推荐)。
@@ -74,6 +74,7 @@ bash installers/macos/install.sh
   curl -fsSL http://<看板IP>:<端口>/agent/install.sh | sh -s -- http://<看板IP>:<端口> 30
   ```
   装好后每 30 秒(改末尾数字调间隔)推一次,目标机自动出现在设置页「发现设备」里,点一下加进来改名。
+  设置页生成这行命令时,**看板地址下拉里有个 `Xxx.local:端口` 选项**——目标机支持 mDNS(多数 Mac/Linux)的话选它,可绕开 Mac IP 漂移(IP 变了名字不变);不支持 mDNS 的设备用 IP 地址即可。
   自启:Linux 用 `@reboot` cron、macOS 用 launchd。卸载:`... | sh -s -- uninstall`。
   **Windows**:设置页同时给出 PowerShell 命令(`iwr .../agent/install.ps1 ... | ...`),自启用『计划任务』(登录启动);卸载把末尾换成 `uninstall`。
   **间隔由目标机 agent 自己定(装时设),看板设置页改不了**(与本机/SSH 的服务端间隔不同)。
