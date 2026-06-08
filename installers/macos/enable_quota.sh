@@ -23,8 +23,21 @@ die(){ echo "✗ $1"; exit 1; }
 [ -f "$CONFIG" ] || die "没找到 config.yaml($CONFIG)。请先跑一次 install.sh。"
 [ -n "$PY" ]     || die "未找到 python3。"
 
+# 解析 --url 参数(NAS 部署时指定看板地址)
+TARGET_URL=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --url) TARGET_URL="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
 PORT=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('server',{}).get('port',8585))" 2>/dev/null || echo 8585)
-RL_URL="http://127.0.0.1:$PORT/api/rate-limits"
+if [ -n "$TARGET_URL" ]; then
+    RL_URL="$TARGET_URL/api/rate-limits"
+else
+    RL_URL="http://127.0.0.1:$PORT/api/rate-limits"
+fi
 CX_INT=$("$PY" -c "import yaml;v=(yaml.safe_load(open('$CONFIG')) or {}).get('ai_usage',{}).get('codex_quota_interval',600);print(v if isinstance(v,int) and v>=60 else 600)" 2>/dev/null || echo 600)
 CL_INT=$("$PY" -c "import yaml;v=(yaml.safe_load(open('$CONFIG')) or {}).get('ai_usage',{}).get('claude_quota_interval',300);print(v if isinstance(v,int) and v>=60 else 300)" 2>/dev/null || echo 300)
 PROXY=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('ai_usage',{}).get('codex_proxy','') or '')" 2>/dev/null || echo "")

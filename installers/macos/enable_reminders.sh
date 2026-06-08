@@ -24,6 +24,15 @@ die(){ echo "✗ $1"; exit 1; }
 [ -f "$CONFIG" ] || die "没找到 config.yaml($CONFIG)。请先在项目目录跑一次安装(install.sh)。"
 [ -n "$PY" ] || die "未找到 python3。"
 
+# 解析 --url 参数(NAS 部署时指定看板地址)
+TARGET_URL=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --url) TARGET_URL="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
 # 1) 配置启用
 "$PY" - "$CONFIG" <<'PYEOF'
 import sys, yaml
@@ -44,6 +53,12 @@ if ! command -v launchctl >/dev/null 2>&1; then
 fi
 
 PORT=$("$PY" -c "import yaml;print((yaml.safe_load(open('$CONFIG')) or {}).get('server',{}).get('port',8585))" 2>/dev/null || echo 8585)
+# 推送地址:--url 指定时用它(NAS 部署),否则默认本机
+if [ -n "$TARGET_URL" ]; then
+    SYNC_URL="$TARGET_URL/api/apple-sync"
+else
+    SYNC_URL="http://127.0.0.1:$PORT/api/apple-sync"
+fi
 # 提醒同步间隔(秒):从配置 intervals.reminders 读,默认 300。它是 launchd 定时器,改后需重跑本脚本生效。
 REM_INTERVAL=$("$PY" -c "import yaml;v=(yaml.safe_load(open('$CONFIG')) or {}).get('reminders',{}).get('interval',300);print(v if isinstance(v,int) and v>=5 else 300)" 2>/dev/null || echo 300)
 [ -f "$SYNC_SH" ] || die "缺少同步脚本:$SYNC_SH"
@@ -61,7 +76,7 @@ cat > "$SYNC_PLIST" <<EOF
   <array><string>/bin/bash</string><string>$SYNC_SH</string></array>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>KINDLE_SYNC_URL</key><string>http://127.0.0.1:$PORT/api/apple-sync</string>
+    <key>KINDLE_SYNC_URL</key><string>$SYNC_URL</string>
     <key>KINDLE_CONFIG</key><string>$CONFIG</string>
     <key>PATH</key><string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
   </dict>
@@ -81,6 +96,6 @@ fi
 
 # 3) 前台跑一次触发授权弹窗
 echo "==> 立即同步一次 —— macOS 会弹「允许访问提醒事项」,请点【允许】..."
-KINDLE_SYNC_URL="http://127.0.0.1:$PORT/api/apple-sync" KINDLE_CONFIG="$CONFIG" /bin/bash "$SYNC_SH"
+KINDLE_SYNC_URL="$SYNC_URL" KINDLE_CONFIG="$CONFIG" /bin/bash "$SYNC_SH"
 echo
 echo "✓ 完成。若没弹窗或误点了拒绝:系统设置 → 隐私与安全性 → 提醒事项,勾选 终端/osascript,再重跑本命令。"

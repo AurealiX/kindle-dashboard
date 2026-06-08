@@ -15,7 +15,8 @@ import shutil
 import subprocess
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_PERSIST = os.environ.get("KINDLE_CCUSAGE_CACHE", os.path.join(REPO, "data", "ccusage_cache.json"))
+_DATA_DIR = os.environ.get("KINDLE_DATA_DIR", os.path.join(REPO, "data"))
+_PERSIST = os.environ.get("KINDLE_CCUSAGE_CACHE", os.path.join(_DATA_DIR, "ccusage_cache.json"))
 
 
 def _save(frag):

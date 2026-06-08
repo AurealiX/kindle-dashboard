@@ -24,6 +24,7 @@ from server.config.loader import ConfigManager
 from server.render import styles, pipeline, contract
 from server.render.build_context import prep_context
 from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo
+from server.sources.ccusage_merge import merge_all_devices
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -54,6 +55,7 @@ WEB_DIR = os.path.join(REPO_ROOT, "web")
 DATA_DIR = os.environ.get("KINDLE_DATA_DIR", os.path.join(REPO_ROOT, "data"))
 APPLE_REMINDERS_CACHE = os.environ.get(
     "KINDLE_APPLE_REMINDERS_CACHE", os.path.join(DATA_DIR, "apple_reminders.json"))
+CCUSAGE_DEVICES_CACHE = os.path.join(DATA_DIR, "ccusage_devices.json")
 
 # 推送 agent 脚本(被监控机 curl 下载):白名单路径,纯文本下发
 AGENT_FILES = {
@@ -220,6 +222,28 @@ def _local_hostname_url(scheme, port):
 _load_apple_reminders_cache()
 
 
+def _load_ccusage_devices_cache():
+    """服务重启后回放各设备推送的 ccusage 数据,重算合并结果,避免重启后空窗。"""
+    try:
+        with open(CCUSAGE_DEVICES_CACHE, encoding="utf-8") as f:
+            by_device = json.load(f) or {}
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        print(f"[ccusage-push] 读取设备缓存失败:{e}")
+        return
+    if not isinstance(by_device, dict) or not by_device:
+        return
+    merged = merge_all_devices(by_device)
+    with cache_lock:
+        cache.setdefault("ccusage_by_device", {}).update(by_device)
+        cache["ccusage"] = merged
+    print(f"[ccusage-push] 已加载 {len(by_device)} 台设备的缓存")
+
+
+_load_ccusage_devices_cache()
+
+
 def _tz(cfg):
     name = cfg.get("server", {}).get("timezone", "Asia/Shanghai")
     try:
@@ -382,7 +406,7 @@ from fastapi import Request  # noqa: E402
 _AUTH_EXEMPT_PREFIXES = ("/kindle/frame.png", "/kindle/page/", "/agent/", "/health", "/setup")
 # 豁免精确路径:设备主动上报的接口(push 进来,Kindle/agent 调,带不了令牌)
 _AUTH_EXEMPT_EXACT = {"/", "/api/device-metrics", "/api/apple-sync",
-                      "/api/rate-limits", "/api/kindle-status"}
+                      "/api/rate-limits", "/api/kindle-status", "/api/ccusage"}
 
 
 @app.middleware("http")
@@ -510,6 +534,31 @@ async def kindle_status(data: dict = Body(...)):
         cache["kindle_battery"] = data.get("battery")
         cache["kindle_charging"] = data.get("charging", False)
     return {"status": "ok"}
+
+
+@app.post("/api/ccusage")
+async def api_ccusage_push(data: dict = Body(...)):
+    """接收设备推送的 ccusage 数据(Mac/其他机器上的 Claude/Codex 日志用量)。
+    支持多设备:每台按 id 存储,合并后写入 cache["ccusage"] 供 build_context 消费。"""
+    dev_id = (data.get("id") or "").strip() or "unknown"
+    cc_data = data.get("cc") or {}
+    codex_data = data.get("codex") or {}
+    if not isinstance(cc_data, dict):
+        cc_data = {}
+    if not isinstance(codex_data, dict):
+        codex_data = {}
+    with cache_lock:
+        by_device = cache.setdefault("ccusage_by_device", {})
+        if dev_id not in by_device and len(by_device) >= 64:
+            return JSONResponse({"status": "rejected", "error": "device count limit"}, status_code=429)
+        by_device[dev_id] = {"cc": cc_data, "codex": codex_data}
+        merged = merge_all_devices(by_device)
+        cache["ccusage"] = merged
+    try:
+        _atomic_json_write(CCUSAGE_DEVICES_CACHE, by_device)
+    except Exception as e:
+        print(f"[ccusage-push] 落盘失败：{e}")
+    return {"status": "ok", "id": dev_id}
 
 
 # ---------- 设置网页 API ----------
