@@ -690,10 +690,18 @@ function pushAgentBox(){
   return d;
 }
 function copyCmd(id, ev){
-  const el=document.getElementById(id); el.select();
+  const el=document.getElementById(id);
+  el.focus(); el.select(); try{ el.setSelectionRange(0, el.value.length); }catch(e){}
   const btn=ev&&ev.currentTarget;
   const done=()=>{ if(!btn) return; const prev=btn.textContent; btn.textContent=t('push_copied'); setTimeout(()=>btn.textContent=prev,1200); };
-  navigator.clipboard?.writeText(el.value).then(done).catch(()=>{ document.execCommand('copy'); done(); });
+  // navigator.clipboard 只在 HTTPS / localhost 可用;局域网 HTTP 下它是 undefined,
+  // 必须回退到 execCommand('copy')(配合上面已 select 的输入框)——否则点了没反应。
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(el.value).then(done).catch(()=>{ try{document.execCommand('copy');}catch(e){} done(); });
+  }else{
+    try{ document.execCommand('copy'); }catch(e){}
+    done();
+  }
 }
 
 const BASE_DEVICE_FIELDS=['cpu','mem','net','disk_io'];
