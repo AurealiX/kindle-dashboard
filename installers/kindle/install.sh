@@ -46,18 +46,11 @@ ask_interval() {
 ask_interval
 echo "   刷新间隔:${INTERVAL}s"
 
-# Mac 局域网 IP 会随 DHCP 变 → 写一个备用 .local(mDNS)地址,主地址(IP)失效时 Kindle 端自动切。
-# Kindle busybox 不一定能解析 .local(装完会实测告诉你);解析不了就需在路由器给 Mac 绑定静态 IP。
+# 备用 .local(mDNS)地址已移除:
+#   ① 它只对"服务跑在本机"成立,服务在 NAS 上时算的是本机(Mac)名字,完全是错的;
+#   ② 主流越狱 Kindle(busybox)根本解析不了 .local。
+# 取而代之:看板服务所在那台机器的 IP 务必固定(见脚本结尾的提示)。
 SERVER_URL_ALT=""
-if [ "$(uname)" = "Darwin" ]; then
-  lh=$(scutil --get LocalHostName 2>/dev/null)
-  port=$(echo "$SERVER_URL" | sed -n 's#.*:\([0-9][0-9]*\)$#\1#p'); [ -z "$port" ] && port=8585
-  if [ -n "$lh" ]; then
-    cand="http://${lh}.local:${port}"
-    [ "$cand" != "$SERVER_URL" ] && SERVER_URL_ALT="$cand"
-  fi
-fi
-[ -n "$SERVER_URL_ALT" ] && echo "   备用地址(IP 变兜底):$SERVER_URL_ALT"
 
 # USB 模式:自动给本机 USB 网卡配同网段 IP,最终用户无需手动 ifconfig(真·一键)
 ensure_usb_route() {
@@ -121,23 +114,15 @@ ssh $SSHOPT root@"$KINDLE_IP" "
   echo started
 "
 
-# 实测 .local 兜底在这台 Kindle 上能否解析(把"需真机验证 mDNS"这步自动化掉)
-if [ -n "$SERVER_URL_ALT" ]; then
-  echo "==> 测试备用地址 $SERVER_URL_ALT 在此 Kindle 上是否可用..."
-  code=$(ssh $SSHOPT root@"$KINDLE_IP" "curl -s -m 6 -o /dev/null -w '%{http_code}' $SERVER_URL_ALT/health 2>/dev/null" 2>/dev/null) || code=000
-  if [ "$code" = "200" ]; then
-    echo "   ✓ 可用:Mac 局域网 IP 变了也能自动切到 .local,无需手动改地址。"
-  else
-    echo "   ⚠ 此 Kindle 解析不了 .local(busybox 多半无 mDNS,实测返回「${code:-无}」)。"
-    echo "     → Mac IP 会变,多半是 Apple『私有 Wi-Fi 地址』在轮替 MAC。解决:系统设置→Wi-Fi→"
-    echo "       当前网络『详细信息』→『私有 Wi-Fi 地址』从『轮替』改成『固定』,IP 通常就稳定了。"
-    echo "       (想 100% 保险:固定后再去路由器把该 MAC 绑定一个 IP。详见 docs/install.md)"
-  fi
-fi
-
 # 关闭复用连接
 ssh $SSHOPT -O exit root@"$KINDLE_IP" 2>/dev/null || true
 
 echo "✓ 完成。Kindle 应开始显示看板(横放摆,顶边朝右)。"
 echo "  之后改配置在网页保存即可,Kindle 侧不用再碰。"
+echo
+echo "⚠ 重要:Kindle 是按固定地址 $SERVER_URL 拉图的——【看板服务所在那台机器】的 IP 一旦变,Kindle 就拉不到图、看板停更。请把它固定:"
+echo "  • 服务在 NAS / 常开主机:去路由器给它的 MAC 绑定一个固定 IP(DHCP 保留地址),或在那台机器上设静态 IP。一次到位、最稳。"
+echo "  • 服务在 Mac:Mac 的 IP 老变多半是 Apple『私有 Wi-Fi 地址』在轮替 MAC → 系统设置→Wi-Fi→当前网络『详细信息』→『私有 Wi-Fi 地址』改成『固定』(想更稳再去路由器绑 IP)。"
+echo "  IP 真变了:重跑本命令、SERVER_URL 换成新地址即可。"
+echo
 echo "  不想用了:sh installers/kindle/uninstall.sh $KINDLE_IP"

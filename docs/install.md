@@ -128,11 +128,13 @@ powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # 一
 - **`INTERVAL`(Kindle 拉图间隔)**:刷机时定,Kindle 端多久拉一张新图。改它要重跑 `install.sh`,网页改不了。
 - **`page_interval`(服务端轮播间隔)**:看板多少秒翻一页,设置网页里随时可配。
 
-**Mac IP 变化兜底**:Mac 的局域网 IP 可能变,导致 Kindle 拉图地址失效、看板停更。**主因常是 Apple 的「私有 Wi-Fi 地址」(MAC 随机化)**:默认值是「轮替」,Mac 每隔一阵换个随机 MAC,路由器按 MAC 记租约,MAC 一变 IP 就跟着变(不是普通 DHCP 续租)。`install.sh` 会探测 Mac 的 `.local`(mDNS)主机名写成**备用地址**(`SERVER_URL_ALT`),Kindle 端 `start.sh` 拉图连续失败时在主(IP)/备(`.local`)地址间**自动轮换**。
-- ⚠️ Kindle busybox 不一定自带 mDNS 解析 —— `install.sh` **装完会让 Kindle 当场 `curl` 实测**并打印结果(✓ 可用 / ⚠ 不可用)。**真机实测:基础款 KT3 解析不了 `.local`(`curl` 返回 000),`.local` 兜底对它无效**(对支持 mDNS 的环境才有效,无害)。
-- **最简单的根治办法**(推荐):系统设置 → Wi-Fi → 当前网络「详细信息…」→「私有 Wi-Fi 地址」从**「轮替」改成「固定」**。MAC 不再变,路由器通常就持续分给同一 IP,地址稳了。
-- 想 100% 保险:改「固定」后再去路由器把这个 MAC 绑死到一个 IP;或在 Mac 的 TCP/IP 里把 IPv4 设为「手动」固定 IP(不经 DHCP,彻底绕开)。
-- ❌ **别直接靠路由器绑 MAC**:只要「私有 Wi-Fi 地址」还是「轮替」,MAC 一直变,绑了也没用 —— 必须先改成「固定」。
+**服务器 IP 别变(关键)**:Kindle 按固定地址拉图,**看板服务所在那台机器的 IP 一旦变,Kindle 就拉不到图、看板停更**。按服务在哪台机器分两种处理:
+
+- **服务在 NAS / 常开主机**(NAS 部署):NAS 一般走有线、MAC 不变,**去路由器给它的 MAC 绑定一个固定 IP(DHCP 保留地址),或在 NAS 上设静态 IP**。绑一次就稳,最省心。
+- **服务在 Mac**:Mac 的 IP 老变,**主因是 Apple『私有 Wi-Fi 地址』(MAC 随机化)**——默认「轮替」,Mac 每隔一阵换个随机 MAC,路由器按 MAC 记租约,MAC 一变 IP 跟着变。**根治:系统设置 → Wi-Fi → 当前网络「详细信息…」→「私有 Wi-Fi 地址」从「轮替」改成「固定」**(想更稳再去路由器绑 IP,或在 TCP/IP 里设手动 IP)。
+  - ❌ 别只靠路由器绑 MAC:只要「私有 Wi-Fi 地址」还是「轮替」,MAC 一直变,绑了也没用——必须先改「固定」。
+- **IP 真的变了**:重跑 `install.sh`(或设置页那条 Kindle 刷机命令),`SERVER_URL` 换成新地址即可。
+- 注:旧版那个 `.local`(mDNS)备用地址已移除——它只对"服务跑在本机"成立(服务在 NAS 时算的是本机名,是错的),且主流越狱 Kindle(busybox)根本解析不了 `.local`。
 
 **屏幕分辨率(机型)**:设置网页「服务」里有 **Kindle 机型** 下拉,选你的型号(基础版 6″/Paperwhite 3-4/PW5/PW12·Oasis/Scribe),服务端就按该机型原生分辨率出清晰图——高 PPI 机型不再被放大糊字。
 - 原理:风格只按基准画布 **横屏 800×600** 设计,渲染时用 Chrome `--force-device-scale-factor` 把同一份布局**矢量放大**到目标分辨率(字体/线条放大依旧锐利,CSS 零改动)。详见 `docs/multi-resolution-spec.md`。

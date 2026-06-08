@@ -96,4 +96,10 @@ $remote = "echo 'SERVER_URL=$ServerUrl' > /mnt/us/dashboard.conf; " +
 Write-Host ""
 Write-Host "√ 完成。Kindle 应开始显示看板(横放摆,顶边朝右)。" -ForegroundColor Green
 Write-Host "  之后改配置在网页保存即可,Kindle 侧不用再碰。"
+Write-Host ""
+Write-Host "! 重要:Kindle 按固定地址 $ServerUrl 拉图——【看板服务所在那台机器】的 IP 一旦变,看板就停更。请把它固定:" -ForegroundColor Yellow
+Write-Host "  - 服务在 NAS / 常开主机:去路由器给它的 MAC 绑定一个固定 IP(DHCP 保留地址),或在那台机器上设静态 IP。最稳。"
+Write-Host "  - 服务在 Mac:IP 老变多半是 Apple『私有 Wi-Fi 地址』轮替 → 系统设置→Wi-Fi→详细信息→『私有 Wi-Fi 地址』改『固定』。"
+Write-Host "  IP 真变了:重跑本命令、-ServerUrl 换成新地址即可。"
+Write-Host ""
 Write-Host "  不想用了:以管理员运行  powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1"
