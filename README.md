@@ -232,7 +232,7 @@ docker compose up -d --build     # 重建(代码更新后)
 
 风格做成「数据契约 + 风格包」解耦:所有风格引用同一套[数据契约](docs/data-contract.md),网页下拉切换 + 实时预览。已内置 **7 套皮肤**(`style_a` 杂志风 + `terminal`/`bento`/`blueprint`/`minimal`/`newspaper`/`gauge`),每套覆盖全部页面。新增风格见 [docs/style-authoring.md](docs/style-authoring.md)。
 
-**多分辨率**:设置页选 Kindle 机型即按原生分辨率出清晰图(基础版 6″/Paperwhite/Oasis/Scribe…);风格只按基准画布 800×600 设计,渲染时用 Chrome `--force-device-scale-factor` 矢量放大,字体线条依旧锐利、CSS 零改动。详见 [docs/multi-resolution-spec.md](docs/multi-resolution-spec.md)。
+**多分辨率**:设置页选 Kindle 机型即按原生分辨率出清晰图(基础版 6″/Paperwhite/Oasis/Scribe…);风格只按基准画布 800×600 设计,渲染时用 Chrome `--force-device-scale-factor` 矢量放大,字体线条依旧锐利、CSS 零改动。设置页选机型即可,无需手动配置。
 
 ## 状态与路线
 
@@ -466,7 +466,7 @@ See [docs/install.md](docs/install.md) (detailed steps + troubleshooting), [data
 
 Styles are decoupled as "data contract + style pack": all styles reference the same [data contract](docs/data-contract.md), switchable from a web dropdown with live preview. **7 skins** are built in (`style_a` magazine-style + `terminal`/`bento`/`blueprint`/`minimal`/`newspaper`/`gauge`), each covering every page. To author a new style, see [docs/style-authoring.md](docs/style-authoring.md).
 
-**Multi-resolution**: pick your Kindle model in settings and it renders at native resolution (basic 6″ / Paperwhite / Oasis / Scribe…). Styles are designed against an 800×600 base canvas and vector-scaled at render time via Chrome's `--force-device-scale-factor` — fonts and lines stay sharp, with zero CSS changes. See [docs/multi-resolution-spec.md](docs/multi-resolution-spec.md).
+**Multi-resolution**: pick your Kindle model in settings and it renders at native resolution (basic 6″ / Paperwhite / Oasis / Scribe…). Styles are designed against an 800×600 base canvas and vector-scaled at render time via Chrome's `--force-device-scale-factor` — fonts and lines stay sharp, with zero CSS changes. Just pick your model in settings — no manual configuration needed.
 
 ## Status & roadmap
 

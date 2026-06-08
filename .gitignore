@@ -51,3 +51,7 @@ CLAUDE.md
 docs/migration-map.md
 docs/i18n-spec.md
 docs/nas-deploy-spec.md
+docs/ha-page-spec.md
+docs/ha-page-styles-spec.md
+docs/mstodo-integration.md
+docs/multi-resolution-spec.md
