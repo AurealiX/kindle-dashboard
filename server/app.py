@@ -66,6 +66,13 @@ AGENT_FILES = {
     "install.ps1":       os.path.join(REPO_ROOT, "installers", "push-agent", "install_agent.ps1"),
     "push_agent.ps1":    os.path.join(REPO_ROOT, "installers", "push-agent", "push_agent.ps1"),
     "collect_windows.ps1": os.path.join(REPO_ROOT, "server", "sources", "collectors", "collect_windows.ps1"),
+    # Mac 独立推送安装器(NAS 部署用,不需要 clone 仓库)
+    "install_reminders.sh": os.path.join(REPO_ROOT, "installers", "mac-push", "install_reminders.sh"),
+    "install_ccusage.sh":   os.path.join(REPO_ROOT, "installers", "mac-push", "install_ccusage.sh"),
+    "install_quota.sh":     os.path.join(REPO_ROOT, "installers", "mac-push", "install_quota.sh"),
+    "read_reminders.js":    os.path.join(REPO_ROOT, "installers", "macos", "reminders", "read_reminders.js"),
+    "claude_statusline.py": os.path.join(REPO_ROOT, "installers", "macos", "quota", "claude_statusline.py"),
+    "codex_quota.py":       os.path.join(REPO_ROOT, "installers", "macos", "quota", "codex_quota.py"),
 }
 
 # 采集器模块名 → (配置段, 字段, 默认秒)。间隔放在各源自己的配置段里(随源卡),不再集中。
@@ -514,6 +521,8 @@ async def apple_sync(data: dict = Body(...)):
         _atomic_json_write(APPLE_REMINDERS_CACHE, payload)
     except Exception as e:
         print(f"[apple-sync] 写本地缓存失败:{e}")
+    if payload["reminders"] and not (cm.get().get("reminders", {}) or {}).get("enabled"):
+        cm.force_set("reminders", "enabled", True)
     return {"status": "ok"}
 
 
@@ -558,6 +567,8 @@ async def api_ccusage_push(data: dict = Body(...)):
         _atomic_json_write(CCUSAGE_DEVICES_CACHE, by_device)
     except Exception as e:
         print(f"[ccusage-push] 落盘失败：{e}")
+    if not (cm.get().get("ai_usage", {}) or {}).get("enabled"):
+        cm.force_set("ai_usage", "enabled", True)
     return {"status": "ok", "id": dev_id}
 
 

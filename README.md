@@ -141,31 +141,29 @@ bash installers/nas/install.sh
 
 **Mac 上(推数据到 NAS)**
 
-前提:这台 Mac 已经照上面「快速开始」clone 过仓库并跑过 `install.sh`(有 `.venv`、有 `config.yaml`)。把 `NAS_IP` 换成你 NAS 的局域网地址(如 `192.168.5.138`):
+**不需要在 Mac 上 clone 仓库。** 把 `NAS_IP` 换成你 NAS 的局域网地址(如 `192.168.5.138`),每条命令一行搞定:
 
 ```bash
-cd kindle-dashboard    # 进 clone 过的仓库目录
-
 # ① AI 用量(ccusage):采集本机 Claude/Codex 日志,定时推给 NAS
-bash installers/macos/enable_ccusage_push.sh --url http://NAS_IP:8585
-# → 装 launchd 定时器(默认每 300 秒),后台自动推送;立即跑一次确认连通
+#    前提:先装 ccusage → npm install -g ccusage
+curl -fsSL http://NAS_IP:8585/agent/install_ccusage.sh | sh -s -- http://NAS_IP:8585
 
-# ② 提醒事项:读本机 Reminders.app,推给 NAS
-bash installers/macos/enable_reminders.sh --url http://NAS_IP:8585
-# → 装 launchd 定时器(默认每 300 秒);首次会弹 macOS「允许访问提醒事项」授权,点允许
+# ② 提醒事项:读本机 Reminders.app,推给 NAS(仅 macOS)
+curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- http://NAS_IP:8585
 
-# ③ AI 额度(Claude/Codex 5h·周窗口):采集后推给 NAS
-bash installers/macos/enable_quota.sh --url http://NAS_IP:8585
-# → Claude 走 statusLine(自动配);Codex 走 launchd 定时器
+# ③ AI 额度(Claude/Codex 5h·周窗口,仅 macOS)
+curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- http://NAS_IP:8585
 ```
 
-每条命令会立即跑一次并打印结果,之后后台 launchd 定时推送,**Mac 重启后自动恢复**。
+每条命令从 NAS 下载轻量脚本到 `~/.kindle-dashboard/`,装 launchd 定时推送,**Mac 重启后自动恢复**。不需要 Python、不需要 venv、不需要 config.yaml。
 
-停用某项推送:
+也可以直接打开 NAS 设置页,每个数据源卡片下面都有对应命令(NAS 地址已自动填好,复制粘贴即可)。
+
+停用某项推送(把末尾参数换成 `uninstall`):
 ```bash
-bash installers/macos/disable_ccusage_push.sh     # 停 AI 用量推送
-bash installers/macos/disable_reminders.sh         # 停提醒推送
-bash installers/macos/disable_quota.sh             # 停额度推送
+curl -fsSL http://NAS_IP:8585/agent/install_ccusage.sh | sh -s -- uninstall
+curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- uninstall
+curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- uninstall
 ```
 
 **多台 Mac / 多设备**:每台跑自己的 enable 命令即可,设备自动以主机名区分。看板服务按日期 + 模型把所有设备的数据**相加合并**(不是覆盖、不是取最大),AI 页显示的是所有设备的总量。
@@ -356,31 +354,29 @@ Config and data live in Docker volumes (`config` / `data`) — **rebuilding the 
 
 **On the Mac (push data to the NAS)**
 
-Prerequisite: this Mac must have already cloned the repo and run `install.sh` (has `.venv` and `config.yaml`). Replace `NAS_IP` with your NAS's LAN address (e.g. `192.168.5.138`):
+**No need to clone the repo on the Mac.** Replace `NAS_IP` with your NAS's LAN address (e.g. `192.168.5.138`); each command is one line:
 
 ```bash
-cd kindle-dashboard    # enter the cloned repo directory
+# ① AI usage (ccusage): collect local Claude/Codex logs, push to NAS
+#    Prerequisite: install ccusage first → npm install -g ccusage
+curl -fsSL http://NAS_IP:8585/agent/install_ccusage.sh | sh -s -- http://NAS_IP:8585
 
-# ① AI usage (ccusage): collect local Claude/Codex logs, push to NAS on a timer
-bash installers/macos/enable_ccusage_push.sh --url http://NAS_IP:8585
-# → installs a launchd timer (default every 300s); runs once immediately to confirm connectivity
+# ② Reminders: read local Reminders.app, push to NAS (macOS only)
+curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- http://NAS_IP:8585
 
-# ② Reminders: read local Reminders.app, push to NAS
-bash installers/macos/enable_reminders.sh --url http://NAS_IP:8585
-# → installs a launchd timer (default every 300s); first run pops a macOS "allow Reminders access" dialog — click Allow
-
-# ③ AI quota (Claude/Codex 5h·weekly windows): collect and push to NAS
-bash installers/macos/enable_quota.sh --url http://NAS_IP:8585
-# → Claude via statusLine (auto-configured); Codex via launchd timer
+# ③ AI quota (Claude/Codex 5h·weekly windows, macOS only)
+curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- http://NAS_IP:8585
 ```
 
-Each command runs once immediately and prints the result, then pushes in the background via launchd — **survives Mac reboot automatically**.
+Each command downloads a lightweight script from the NAS into `~/.kindle-dashboard/` and sets up a launchd timer — **survives Mac reboot automatically**. No Python venv, no config.yaml, no repo clone.
 
-To disable a specific push:
+You can also open the NAS settings page — each data-source card shows the corresponding command with the NAS address pre-filled (just copy and paste).
+
+To disable a specific push (replace the trailing argument with `uninstall`):
 ```bash
-bash installers/macos/disable_ccusage_push.sh     # stop AI usage push
-bash installers/macos/disable_reminders.sh         # stop reminders push
-bash installers/macos/disable_quota.sh             # stop quota push
+curl -fsSL http://NAS_IP:8585/agent/install_ccusage.sh | sh -s -- uninstall
+curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- uninstall
+curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- uninstall
 ```
 
 **Multiple Macs / devices**: just run the enable commands on each machine — devices are auto-identified by hostname. The dashboard service **sums all devices' data by date + model** (no overwriting, no max) so the AI page shows the combined total across all machines.
