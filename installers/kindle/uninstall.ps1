@@ -1,4 +1,4 @@
-<#
+﻿<#
 Kindle 一键卸载/还原(Windows 版):停看板、移除开机自启、删脚本与图片、恢复系统界面 —— 像没装过。
 对应 macOS/Linux 的 installers/kindle/uninstall.sh,逻辑一致。Kindle 端命令一字不改。
 用法(右键 PowerShell『以管理员身份运行』,配 USB 网卡需要):

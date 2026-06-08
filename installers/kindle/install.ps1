@@ -1,4 +1,4 @@
-<#
+﻿<#
 Kindle 一键配置(Windows 版):推送 start/stop、写服务地址、装开机自启、启动显示。
 对应 macOS/Linux 的 installers/kindle/install.sh,**逻辑一致**;仅平台命令不同
 (本机 IP 探测 / 用 netsh 配 USB 网卡 / 用 Windows 自带 ssh+scp)。推到 Kindle 上的脚本与 Kindle 端逻辑一字不改。
