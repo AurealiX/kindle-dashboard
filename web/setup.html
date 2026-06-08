@@ -124,14 +124,16 @@ const I18N={
     rem_tip_on:'已启用。卸载:',
     rem_copy:'复制', rem_copied:'已复制',
     rem_foot:'仅 macOS。脚本装到 <code>~/.kindle-dashboard/</code>,launchd 开机自启。',
-    // ccusage push
-    ccu_tip_off:'在跑 Claude/Codex 的设备上执行(需先装 ccusage: <code>npm i -g ccusage</code>):',
-    ccu_tip_on:'已启用。卸载:',
-    ccu_foot:'macOS/Linux 均可。多台设备各推各的,看板自动按日汇总相加。',
-    // quota push
-    qt_tip_off:'在跑 Claude Code / Codex CLI 的 Mac 上执行:',
-    qt_tip_on:'已启用。卸载:',
-    qt_foot:'Claude 走官方 statusLine(稳),Codex 走 launchd 定时器。仅 macOS。',
+    // ccusage push — AI 用量统计(今天花了多少 token / 多少钱)
+    ccu_tip_off:'<b>AI 用量统计</b>(统计 Claude/Codex 花了多少 token 和钱)—— 在装了 Claude Code 或 Codex 的 Mac/Linux 上执行(需先装 ccusage: <code>npm i -g ccusage</code>):',
+    ccu_tip_on:'<b>AI 用量统计</b> 已启用。在其他设备上也装:',
+    ccu_tip_uninstall:'卸载:',
+    ccu_foot:'仅 macOS / Linux。多台设备各推各的,看板自动按日汇总相加。',
+    // quota push — AI 额度监控(5h/周窗口还剩多少百分比)
+    qt_tip_off:'<b>AI 额度监控</b>(监控 Claude 5小时/周额度还剩多少)—— 在装了 Claude Code 或 Codex CLI 的 Mac 上执行:',
+    qt_tip_on:'<b>AI 额度监控</b> 已启用。在其他 Mac 上也装:',
+    qt_tip_uninstall:'卸载:',
+    qt_foot:'仅 macOS。Claude 走官方 statusLine(稳),Codex 走 launchd 定时器。',
     // city
     city_ph:'输入城市名搜索,如 上海 / 朝阳', city_search:'搜索',
     city_current:'当前:', city_unselected:'(未选择)',
@@ -189,12 +191,14 @@ const I18N={
     rem_tip_on:'Enabled. Uninstall:',
     rem_copy:'Copy', rem_copied:'Copied',
     rem_foot:'macOS only. Scripts installed to <code>~/.kindle-dashboard/</code>, launchd auto-starts on login.',
-    ccu_tip_off:'Run on the machine running Claude/Codex (requires ccusage: <code>npm i -g ccusage</code>):',
-    ccu_tip_on:'Enabled. Uninstall:',
-    ccu_foot:'macOS/Linux. Multiple devices push independently; the dashboard auto-sums by date.',
-    qt_tip_off:'Run on the Mac running Claude Code / Codex CLI:',
-    qt_tip_on:'Enabled. Uninstall:',
-    qt_foot:'Claude via official statusLine (stable), Codex via launchd timer. macOS only.',
+    ccu_tip_off:'<b>AI Usage Stats</b> (track token/cost consumption) — run on the Mac/Linux where Claude Code or Codex is installed (requires ccusage: <code>npm i -g ccusage</code>):',
+    ccu_tip_on:'<b>AI Usage Stats</b> enabled. Install on another device too:',
+    ccu_tip_uninstall:'Uninstall:',
+    ccu_foot:'macOS / Linux only. Multiple devices push independently; the dashboard auto-sums by date.',
+    qt_tip_off:'<b>AI Quota Monitor</b> (track remaining Claude 5h/weekly quota %) — run on the Mac with Claude Code or Codex CLI:',
+    qt_tip_on:'<b>AI Quota Monitor</b> enabled. Install on another Mac too:',
+    qt_tip_uninstall:'Uninstall:',
+    qt_foot:'macOS only. Claude via official statusLine (stable), Codex via launchd timer.',
     city_ph:'Search a city name, e.g. Shanghai / Chaoyang', city_search:'Search',
     city_current:'Current: ', city_unselected:'(none)',
     city_adv:'Advanced: enter LocationID manually', city_code_ph:'e.g. 101010100', city_searching:'Searching…',
@@ -485,19 +489,20 @@ function renderMstodo(){
 
 // 公共:生成"说明 + 命令框 + 复制按钮 + 注脚"的 push 命令块
 // 已启用时同时显示安装命令(其他设备也要装)和卸载命令
-function macPushCmdBox(tipKey, tipOnKey, footKey, installCmd, uninstallCmd, isEnabled){
+function macPushCmdBox(opts){
+  // opts: {tipOff, tipOn, tipUninstall, foot, installCmd, uninstallCmd, enabled}
   const d=document.createElement('div');
   d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
-  const row=(cmd,id)=>`<div style="display:flex;gap:6px;align-items:center;margin-top:5px;">
+  const row=(cmd)=>`<div style="display:flex;gap:6px;align-items:center;margin-top:5px;">
     <code style="flex:1;background:#f4f4f4;padding:8px 10px;border-radius:6px;font-size:12px;user-select:all;word-break:break-all;">${h(cmd)}</code>
     <button type="button" class="mp-copy" data-cmd="${h(cmd)}" style="white-space:nowrap;">${h(t('rem_copy'))}</button></div>`;
-  if(isEnabled){
-    d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;">${t(tipKey)}</div>${row(installCmd)}
-      <div class="fhelp" style="margin-top:8px;">${t(tipOnKey)}</div>${row(uninstallCmd)}
-      <div class="fhelp" style="margin-top:6px;">${t(footKey)}</div>`;
+  if(opts.enabled){
+    d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;">${t(opts.tipOn)}</div>${row(opts.installCmd)}
+      <div class="fhelp" style="margin-top:8px;">${t(opts.tipUninstall||opts.tipOn)}</div>${row(opts.uninstallCmd)}
+      <div class="fhelp" style="margin-top:6px;">${t(opts.foot)}</div>`;
   } else {
-    d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;">${t(tipKey)}</div>${row(installCmd)}
-      <div class="fhelp" style="margin-top:6px;">${t(footKey)}</div>`;
+    d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;">${t(opts.tipOff)}</div>${row(opts.installCmd)}
+      <div class="fhelp" style="margin-top:6px;">${t(opts.foot)}</div>`;
   }
   d.querySelectorAll('.mp-copy').forEach(btn=>{
     btn.onclick=()=>{
@@ -514,24 +519,24 @@ function _pushUrl(){
 }
 function renderReminderCmd(){
   const u=_pushUrl();
-  return macPushCmdBox('rem_tip_off','rem_tip_on','rem_foot',
-    `curl -fsSL ${u}/agent/install_reminders.sh | sh -s -- ${u}`,
-    `curl -fsSL ${u}/agent/install_reminders.sh | sh -s -- uninstall`,
-    (CONFIG.reminders||{}).enabled);
+  return macPushCmdBox({tipOff:'rem_tip_off', tipOn:'rem_tip_on', tipUninstall:'rem_tip_on', foot:'rem_foot',
+    installCmd:`curl -fsSL ${u}/agent/install_reminders.sh | sh -s -- ${u}`,
+    uninstallCmd:`curl -fsSL ${u}/agent/install_reminders.sh | sh -s -- uninstall`,
+    enabled:(CONFIG.reminders||{}).enabled});
 }
 function renderCcusagePushCmd(){
   const u=_pushUrl();
-  return macPushCmdBox('ccu_tip_off','ccu_tip_on','ccu_foot',
-    `curl -fsSL ${u}/agent/install_ccusage.sh | sh -s -- ${u}`,
-    `curl -fsSL ${u}/agent/install_ccusage.sh | sh -s -- uninstall`,
-    (CONFIG.ai_usage||{}).enabled);
+  return macPushCmdBox({tipOff:'ccu_tip_off', tipOn:'ccu_tip_on', tipUninstall:'ccu_tip_uninstall', foot:'ccu_foot',
+    installCmd:`curl -fsSL ${u}/agent/install_ccusage.sh | sh -s -- ${u}`,
+    uninstallCmd:`curl -fsSL ${u}/agent/install_ccusage.sh | sh -s -- uninstall`,
+    enabled:(CONFIG.ai_usage||{}).enabled});
 }
 function renderQuotaPushCmd(){
   const u=_pushUrl();
-  return macPushCmdBox('qt_tip_off','qt_tip_on','qt_foot',
-    `curl -fsSL ${u}/agent/install_quota.sh | sh -s -- ${u}`,
-    `curl -fsSL ${u}/agent/install_quota.sh | sh -s -- uninstall`,
-    (CONFIG.ai_usage||{}).enabled);
+  return macPushCmdBox({tipOff:'qt_tip_off', tipOn:'qt_tip_on', tipUninstall:'qt_tip_uninstall', foot:'qt_foot',
+    installCmd:`curl -fsSL ${u}/agent/install_quota.sh | sh -s -- ${u}`,
+    uninstallCmd:`curl -fsSL ${u}/agent/install_quota.sh | sh -s -- uninstall`,
+    enabled:(CONFIG.ai_usage||{}).enabled});
 }
 
 // 城市选择器:搜城市名 → GeoAPI 候选 → 选中写编码+城市名;折叠「高级」可手填 LocationID。
