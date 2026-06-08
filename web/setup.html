@@ -145,7 +145,7 @@ const I18N={
     push_intro:'<b>监控另一台机器(不交密码)</b>:在那台机器上跑下面对应系统的命令,它就会每 30 秒把性能发来;回这页刷新,在上面「发现设备」里点一下加进来改名。改间隔把命令末尾的 <code>30</code> 换成你要的秒数。',
     push_addr_label:'<b>看板地址</b>:',
     push_nix_label:'<b>Linux / NAS / Mac</b>(终端):', push_win_label:'<b>Windows</b>(PowerShell):',
-    push_uninstall:'卸载:Linux/Mac 把命令末尾 <code>看板地址 30</code> 换成 <code>uninstall</code>;Windows 把末尾 <code>$u 30</code> 换成 <code>uninstall</code>。',
+    push_uninstall:'卸载(在那台机器上直接复制运行,无需改任何东西):',
     dev_name:'名称', dev_mode:'采集方式', dev_mode_local:'本机直读',
     dev_mode_push:'推(装 agent)', dev_mode_ssh:'拉(SSH)',
     dev_platform:'系统', dev_id:'标识(push 关联)', dev_id_ph:'留空=用名称',
@@ -206,7 +206,7 @@ const I18N={
     push_intro:'<b>Monitor another machine (no password needed)</b>: run the command for that machine\'s OS below, and it will send its metrics every 30 seconds; refresh this page and click it under "Discovered devices" above to add and rename it. To change the interval, replace the trailing <code>30</code> in the command with the seconds you want.',
     push_addr_label:'<b>Dashboard address</b>: ',
     push_nix_label:'<b>Linux / NAS / Mac</b> (terminal):', push_win_label:'<b>Windows</b> (PowerShell):',
-    push_uninstall:'Uninstall: on Linux/Mac, replace the trailing <code>address 30</code> with <code>uninstall</code>; on Windows, replace the trailing <code>$u 30</code> with <code>uninstall</code>.',
+    push_uninstall:'Uninstall (copy & run on that machine, no edits needed):',
     dev_name:'Name', dev_mode:'Collection mode', dev_mode_local:'Local read',
     dev_mode_push:'Push (install agent)', dev_mode_ssh:'Pull (SSH)',
     dev_platform:'OS', dev_id:'ID (push linkage)', dev_id_ph:'blank = use name',
@@ -608,16 +608,16 @@ function pushCmds(base){
   const ps=u.replace(/'/g,"''");
   return {
     nix:`curl -fsSL ${u}/agent/install.sh | sh -s -- ${u} 30`,
-    win:`$u='${ps}'; iwr "$u/agent/install.ps1" -UseBasicParsing -OutFile "$env:TEMP\\kda.ps1"; powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\\kda.ps1" $u 30`
+    win:`$u='${ps}'; iwr "$u/agent/install.ps1" -UseBasicParsing -OutFile "$env:TEMP\\kda.ps1"; powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\\kda.ps1" $u 30`,
+    nixU:`curl -fsSL ${u}/agent/install.sh | sh -s -- uninstall`,
+    winU:`$u='${ps}'; iwr "$u/agent/install.ps1" -UseBasicParsing -OutFile "$env:TEMP\\kda.ps1"; powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\\kda.ps1" uninstall`
   };
 }
 function updatePushCmds(){
-  const u=document.getElementById('push-url');
-  const nix=document.getElementById('push-nix');
-  const win=document.getElementById('push-win');
-  if(!u||!nix||!win) return;
+  const u=document.getElementById('push-url'); if(!u) return;
   const c=pushCmds(u.value);
-  nix.value=c.nix; win.value=c.win;
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
+  set('push-nix',c.nix); set('push-win',c.win); set('push-nix-un',c.nixU); set('push-win-un',c.winU);
 }
 // Kindle 刷机命令:把「clone 仓库 + 用本看板地址刷 Kindle」做成一行,Mac/Win 复制即用。
 // 地址用本看板的局域网地址(SERVER_URL 候选),所以 Kindle 拉图指的是这台服务器(NAS/Mac),不用手填 IP。
@@ -692,7 +692,9 @@ function pushAgentBox(){
            style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;font:12px monospace;">
     <div class="fhelp" style="margin-top:8px;">${t('push_nix_label')}</div>${row('push-nix')}
     <div class="fhelp" style="margin-top:8px;">${t('push_win_label')}</div>${row('push-win')}
-    <div class="fhelp" style="margin-top:6px;">${t('push_uninstall')}</div>`;
+    <div class="fhelp" style="margin-top:12px;"><b>${t('push_uninstall')}</b></div>
+    <div class="fhelp" style="margin-top:4px;">${t('push_nix_label')}</div>${row('push-nix-un')}
+    <div class="fhelp" style="margin-top:6px;">${t('push_win_label')}</div>${row('push-win-un')}`;
   setTimeout(updatePushCmds,0);
   return d;
 }
