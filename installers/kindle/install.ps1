@@ -16,7 +16,17 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $KDIR = $PSScriptRoot
-function Fail($m){ Write-Host "X $m" -ForegroundColor Red; exit 1 }
+# 记录本次脚本临时配过静态 IP 的 USB 网卡,跑完(成功或失败)都还原成自动获取——
+# Windows 的 netsh 是持久配置(不像 macOS ifconfig 拔线自动恢复),不还原会把网卡留在静态状态。
+$script:UsbAdapter = $null
+function Restore-UsbRoute {
+  if ($script:UsbAdapter) {
+    try { netsh interface ipv4 set address name="$script:UsbAdapter" dhcp | Out-Null } catch {}
+    Write-Host "  (已把临时配置的 USB 网卡『$script:UsbAdapter』还原成自动获取 IP)"
+    $script:UsbAdapter = $null
+  }
+}
+function Fail($m){ Restore-UsbRoute; Write-Host "X $m" -ForegroundColor Red; exit 1 }
 
 # 0. 前置:ssh/scp 存在 + 是否管理员
 if (-not (Get-Command ssh  -ErrorAction SilentlyContinue)) { Fail "没找到 ssh。请装 Windows 自带 OpenSSH 客户端:设置 -> 应用 -> 可选功能 -> 添加『OpenSSH 客户端』,再重跑。" }
@@ -63,8 +73,9 @@ function Ensure-UsbRoute {
   }
   foreach ($c in $cands) {
     $alias = $c.InterfaceAlias
-    Write-Host "   检测到已连接的候选 USB 网卡『$alias』,临时配 192.168.15.201(只动这块,不影响你上网)..."
+    Write-Host "   检测到已连接的候选 USB 网卡『$alias』,临时配 192.168.15.201(只动这块,不影响你上网;跑完会还原)..."
     try { netsh interface ipv4 set address name="$alias" static 192.168.15.201 255.255.255.0 | Out-Null } catch {}
+    $script:UsbAdapter = $alias    # 记下来,脚本结束时还原成自动获取
     Start-Sleep -Seconds 2
     if (Test-Connection -Count 1 -Quiet $KindleIp -ErrorAction SilentlyContinue) { Write-Host "   √ USB 网络已通" -ForegroundColor Green; return $true }
   }
@@ -101,6 +112,8 @@ $remote = "echo 'SERVER_URL=$ServerUrl' > /mnt/us/dashboard.conf; " +
           "setsid /mnt/us/start.sh < /dev/null > /mnt/us/dashboard.log 2>&1 &" +
           " echo started"
 & ssh @O "root@$KindleIp" $remote
+
+Restore-UsbRoute   # 还原临时配过的 USB 网卡为自动获取 IP
 
 Write-Host ""
 Write-Host "√ 完成。Kindle 应开始显示看板(横放摆,顶边朝右)。" -ForegroundColor Green
