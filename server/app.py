@@ -433,6 +433,12 @@ async def _auth(request: Request, call_next):
     return await call_next(request)
 
 
+@app.get("/")
+def root():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/setup")
+
+
 # ---------- Kindle 取图 ----------
 def _placeholder():
     from PIL import Image, ImageDraw
