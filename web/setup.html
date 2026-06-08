@@ -671,6 +671,11 @@ function kindleFlashBox(){
   d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
   d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;"><b>${en?'Flash this dashboard onto your Kindle':'把这个看板刷到 Kindle 上'}</b></div>
     <div class="fhelp">${en?'Two ways to connect (both need SSH/USBNetwork enabled on the Kindle). Fill the two fields, then copy one line below and run it on a computer.':'两种连法二选一(都需要 Kindle 已开 SSH/USBNetwork)。填好下面两个框,复制对应一行到电脑上运行即可。'}</div>
+    <details style="margin:6px 0;"><summary style="cursor:pointer;font-size:12px;color:var(--accent);">${en?'▸ Haven’t enabled SSH on the Kindle yet? Click here':'▸ 还没在 Kindle 上开 SSH?点这里看怎么开'}</summary>
+      <div class="fhelp" style="margin-top:6px;line-height:1.7;">${en
+        ?'On the Kindle open <b>KUAL</b> (the launcher added by the jailbreak):<br><b>· USB (for Method 1)</b>: USBNetwork → Toggle USBNetwork → Toggle SSH over USB only; then keep the Kindle address default 192.168.15.244.<br><b>· Wi-Fi (for Method 2, no driver)</b>: USBNetwork → Toggle SSH over Wi-Fi; find the Wi-Fi IP under Kindle Settings → Device Info and put it in the Kindle address field below.<br>SSH password defaults to <code>mario</code>. ⚠️ USBNetwork turns off on every reboot — re-enable it.'
+        :'Kindle 上打开 <b>KUAL</b>(越狱后多出来的启动器),按你想用的连法开:<br><b>· USB(配方式一)</b>:USBNetwork → Toggle USBNetwork → Toggle SSH over USB only;然后 Kindle 地址保持默认 192.168.15.244。<br><b>· WiFi(配方式二,免装驱动)</b>:USBNetwork → Toggle SSH over WiFi;在 Kindle「设置 → 设备信息」查到 WiFi IP,填到下面的 Kindle 地址框。<br>SSH 密码默认 <code>mario</code>。⚠️ USBNetwork 一重启就关,要再开一次。'}</div>
+    </details>
     <div class="fhelp" style="margin-top:8px;">${en?'Dashboard address (Kindle pulls images from here):':'看板地址(Kindle 从这里拉图):'}</div>
     ${choices}
     <input type="text" id="kindle-url" value="${h(recommended)}" oninput="updateKindleCmds()" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;font:12px monospace;">
@@ -681,7 +686,10 @@ function kindleFlashBox(){
     <div class="fhelp" style="margin-top:8px;">Windows ${en?'(run PowerShell as Administrator)':'(用管理员身份运行 PowerShell)'}:</div>${row('kindle-win')}
     <div class="fhelp" style="margin-top:12px;"><b>${en?'Don’t want it anymore? Restore the Kindle to a normal e-reader:':'不想用了?把 Kindle 变回正常电子书(直接复制运行,无需改任何东西):'}</b></div>
     <div class="fhelp" style="margin-top:4px;">macOS / Linux ${en?'(Terminal)':'(终端)'}:</div>${row('kindle-nix-un')}
-    <div class="fhelp" style="margin-top:6px;">Windows ${en?'(Admin PowerShell)':'(管理员 PowerShell)'}:</div>${row('kindle-win-un')}`;
+    <div class="fhelp" style="margin-top:6px;">Windows ${en?'(Admin PowerShell)':'(管理员 PowerShell)'}:</div>${row('kindle-win-un')}
+    <div class="fhelp" style="margin-top:12px;padding:8px;border:1px dashed var(--line);border-radius:6px;line-height:1.6;">${en
+      ?'🛟 <b>Stuck / can’t connect?</b> If the dashboard takes over the screen and you can’t reach the Kindle (no SSH, no Wi-Fi): plug it into any computer (it’s a USB drive by default — no SSH/Wi-Fi needed), create an empty file named <code>dashboard.off</code> in the drive’s root, and reboot — it returns to a normal e-reader. Delete the file to bring the dashboard back.'
+      :'🛟 <b>救命开关</b>:万一看板占了屏又连不上 Kindle(没开 SSH、WiFi 也没连)——把 Kindle 插任意电脑(默认就是 U 盘模式,不需要 SSH/WiFi),在盘根目录新建一个空文件 <code>dashboard.off</code>,重启 Kindle 即回正常界面;删掉该文件恢复看板。'}</div>`;
   setTimeout(updateKindleCmds,0);
   return d;
 }
