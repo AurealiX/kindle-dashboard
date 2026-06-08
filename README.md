@@ -77,8 +77,29 @@ Kindle 当瘦客户端,只定时拉一张渲染好的 PNG 刷上屏;采集、聚
 
 - 一台**常开**的 Mac 或 NAS(NAS 用 Docker 部署,见下方)
 - 已安装 **Chrome 或 Chromium** 用于渲染(没有也行:安装时可选自动下载内置 chromium,装进虚拟环境、不动系统)
-- 一台**已越狱**且**已开启 USBNetwork(SSH)** 的 Kindle(本项目不含越狱工具;标准越狱流程装的 MRPI 已自带 fbink)
+- 一台**已越狱**且**已开启 SSH** 的 Kindle(本项目不含越狱工具;标准越狱流程装的 MRPI 已自带 fbink)
 - 数据线用支持**数据传输**的(非纯充电线)
+
+<details>
+<summary><b>怎么在 Kindle 上开 SSH</b>(越狱后一次性操作,已开过的跳过)</summary>
+
+越狱完成后,Kindle 上会多出一个 **KUAL** 应用(启动器)。打开它:
+
+**USB SSH(推荐首次用,不依赖 WiFi)**:
+1. KUAL → **USBNetwork** → **Toggle USBNetwork**(`usbnet` 状态变 `enabled`)
+2. KUAL → USBNetwork → **Toggle SSH over USB only**(确认 `sshd for USB` 显示 `enabled`)
+3. 用数据线把 Kindle 插到电脑,电脑上会多出一个 USB 网卡
+4. 电脑终端:`ssh root@192.168.15.244`(密码 `mario`,越狱默认;改过用你自己的)
+5. 装完看板后可以拔线,Kindle 通过 WiFi 拉图,不用一直插着
+
+**WiFi SSH(方便远程调试,但需要先知道 Kindle IP)**:
+1. 确保 Kindle 已连上和电脑同一个 WiFi
+2. KUAL → USBNetwork → **Toggle SSH over WiFi**(确认 `sshd for WiFi` 显示 `enabled`)
+3. 在 Kindle 上查 IP:首页 → 设置 → 设备信息 → 里面有 WiFi IP(如 `192.168.5.36`)
+4. 电脑终端:`ssh root@192.168.5.36`(密码同上)
+
+> 如果 KUAL 里没有 USBNetwork 菜单,说明越狱时漏装了 USBNetwork hack——去 MobileRead 论坛下载对应型号的 `kindle-usbnet-hack` 装上即可。
+</details>
 
 ## 快速开始(Mac)
 
@@ -294,8 +315,29 @@ The same Home page in different built-in skins (**7 total**):
 
 - An **always-on** Mac or NAS (NAS uses Docker — see below)
 - **Chrome or Chromium** for rendering (optional: the installer can auto-download a bundled chromium into the virtualenv without touching your system)
-- A **jailbroken** Kindle with **USBNetwork (SSH)** enabled (this project does not include jailbreak tools; the standard jailbreak toolchain MRPI already ships fbink)
+- A **jailbroken** Kindle with **SSH enabled** (this project does not include jailbreak tools; the standard jailbreak toolchain MRPI already ships fbink)
 - A **data-capable** USB cable (not a charge-only cable)
+
+<details>
+<summary><b>How to enable SSH on the Kindle</b> (one-time setup after jailbreak; skip if already done)</summary>
+
+After jailbreaking, the Kindle will have a **KUAL** app (launcher). Open it:
+
+**USB SSH (recommended for first-time setup — no WiFi needed):**
+1. KUAL → **USBNetwork** → **Toggle USBNetwork** (`usbnet` status changes to `enabled`)
+2. KUAL → USBNetwork → **Toggle SSH over USB only** (confirm `sshd for USB` shows `enabled`)
+3. Connect the Kindle to your computer with a data cable — a new USB network adapter appears
+4. On your computer: `ssh root@192.168.15.244` (password `mario`, the jailbreak default; use yours if you changed it)
+5. After setting up the dashboard you can unplug — the Kindle fetches images over WiFi, no permanent USB connection needed
+
+**WiFi SSH (convenient for remote access, but you need to know the Kindle's IP first):**
+1. Make sure the Kindle is on the same WiFi as your computer
+2. KUAL → USBNetwork → **Toggle SSH over WiFi** (confirm `sshd for WiFi` shows `enabled`)
+3. Find the Kindle's IP: Home → Settings → Device Info → look for the WiFi IP (e.g. `192.168.5.36`)
+4. On your computer: `ssh root@192.168.5.36` (same password)
+
+> If you don't see USBNetwork in KUAL, the jailbreak is missing the USBNetwork hack — download `kindle-usbnet-hack` for your model from the MobileRead forums and install it.
+</details>
 
 ## Quick start (Mac)
 
