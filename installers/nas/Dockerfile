@@ -4,7 +4,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     fonts-noto-cjk \
     fonts-noto-color-emoji \
-    tini \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -22,5 +21,4 @@ ENV KINDLE_CONFIG=/config/config.yaml \
 
 EXPOSE 8585
 
-ENTRYPOINT ["tini", "--"]
 CMD ["python", "-m", "server.run"]

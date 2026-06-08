@@ -91,7 +91,6 @@ def test_dockerfile_syntax():
     assert "python:3.12-slim" in content
     assert "chromium" in content
     assert "fonts-noto-cjk" in content
-    assert "tini" in content
     assert "server.run" in content
     assert "KINDLE_CONFIG=/config/config.yaml" in content
     assert "KINDLE_DATA_DIR=/data" in content
