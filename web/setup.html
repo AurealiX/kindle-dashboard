@@ -120,10 +120,18 @@ const I18N={
     mst_waiting:'等待授权中…',
     mst_expired:'代码已过期,请重新点连接', mst_login_fail:'登录失败:',
     // reminders
-    rem_tip_on:'已启用。要停用,在 Mac 终端、看板项目目录下运行:',
-    rem_tip_off:'要启用,在 Mac 终端、看板项目目录下运行(会请求一次「访问提醒事项」授权):',
+    rem_tip_off:'在 Mac 终端执行(不需要 clone 仓库;首次会弹 macOS「允许提醒事项」授权):',
+    rem_tip_on:'已启用。卸载:',
     rem_copy:'复制', rem_copied:'已复制',
-    rem_foot:'仅 macOS。运行后看板下一轮即可显示提醒事项;此页徽章会变「已启用」。',
+    rem_foot:'仅 macOS。脚本装到 <code>~/.kindle-dashboard/</code>,launchd 开机自启。',
+    // ccusage push
+    ccu_tip_off:'在跑 Claude/Codex 的设备上执行(需先装 ccusage: <code>npm i -g ccusage</code>):',
+    ccu_tip_on:'已启用。卸载:',
+    ccu_foot:'macOS/Linux 均可。多台设备各推各的,看板自动按日汇总相加。',
+    // quota push
+    qt_tip_off:'在跑 Claude Code / Codex CLI 的 Mac 上执行:',
+    qt_tip_on:'已启用。卸载:',
+    qt_foot:'Claude 走官方 statusLine(稳),Codex 走 launchd 定时器。仅 macOS。',
     // city
     city_ph:'输入城市名搜索,如 上海 / 朝阳', city_search:'搜索',
     city_current:'当前:', city_unselected:'(未选择)',
@@ -177,10 +185,16 @@ const I18N={
     mst_step3:'③ Sign in with your Microsoft account and click Allow; this will turn to "Connected" automatically.',
     mst_waiting:'Waiting for authorization…',
     mst_expired:'Code expired, please click Connect again', mst_login_fail:'Sign-in failed: ',
-    rem_tip_on:'Enabled. To disable, run in the Mac terminal, in the dashboard project directory:',
-    rem_tip_off:'To enable, run in the Mac terminal, in the dashboard project directory (it will request "access to Reminders" once):',
+    rem_tip_off:'Run in the Mac terminal (no repo clone needed; first run pops a macOS "Reminders access" dialog):',
+    rem_tip_on:'Enabled. Uninstall:',
     rem_copy:'Copy', rem_copied:'Copied',
-    rem_foot:'macOS only. After running, reminders appear on the next dashboard cycle; the badge here turns "Enabled".',
+    rem_foot:'macOS only. Scripts installed to <code>~/.kindle-dashboard/</code>, launchd auto-starts on login.',
+    ccu_tip_off:'Run on the machine running Claude/Codex (requires ccusage: <code>npm i -g ccusage</code>):',
+    ccu_tip_on:'Enabled. Uninstall:',
+    ccu_foot:'macOS/Linux. Multiple devices push independently; the dashboard auto-sums by date.',
+    qt_tip_off:'Run on the Mac running Claude Code / Codex CLI:',
+    qt_tip_on:'Enabled. Uninstall:',
+    qt_foot:'Claude via official statusLine (stable), Codex via launchd timer. macOS only.',
     city_ph:'Search a city name, e.g. Shanghai / Chaoyang', city_search:'Search',
     city_current:'Current: ', city_unselected:'(none)',
     city_adv:'Advanced: enter LocationID manually', city_code_ph:'e.g. 101010100', city_searching:'Searching…',
@@ -292,6 +306,8 @@ function renderForm(){
       for(const f of sec.fields){ if(f.type!=='module_list'){ const n=renderField(sec.key,f); if(n) c.appendChild(n); } }
     if(sec.key==='reminders') c.appendChild(renderReminderCmd());
     if(sec.key==='mstodo') c.appendChild(renderMstodo());
+    if(sec.key==='ai_usage'){ c.appendChild(renderCcusagePushCmd()); c.appendChild(renderQuotaPushCmd()); }
+    if(sec.key==='server') c.appendChild(kindleFlashBox());
     root.appendChild(c);
   }
   wireKindleModel();
@@ -467,27 +483,48 @@ function renderMstodo(){
   return wrap;
 }
 
-// 提醒事项:不放可点开关,改为显示一行可复制命令(在 Mac 终端、项目目录下运行)。
-// 因为它需要装本机后台 agent + 一次系统授权,只有终端前台跑才弹得出授权框;
-// 网页点开关会造成"显示开着、其实没数据"的假象。状态以 agent 是否装上为准(顶部徽章)。
-function renderReminderCmd(){
-  const on=(CONFIG.reminders||{}).enabled;
-  const cmd=on?'bash installers/macos/disable_reminders.sh'
-              :'bash installers/macos/enable_reminders.sh';
-  const tip=on?t('rem_tip_on'):t('rem_tip_off');
-  const d=document.createElement('div'); d.className='field';
-  d.innerHTML=`<div class="fhelp" style="margin-bottom:6px;">${h(tip)}</div>
+// 公共:生成"说明 + 命令框 + 复制按钮 + 注脚"的 push 命令块
+function macPushCmdBox(tipKey, tipOnKey, footKey, installCmd, uninstallCmd, isEnabled){
+  const cmd=isEnabled?uninstallCmd:installCmd;
+  const tip=isEnabled?t(tipOnKey):t(tipKey);
+  const d=document.createElement('div');
+  d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
+  d.innerHTML=`<div class="fhelp" style="margin-bottom:6px;">${tip}</div>
     <div style="display:flex;gap:6px;align-items:center;">
-      <code style="flex:1;background:#f4f4f4;padding:8px 10px;border-radius:6px;font-size:13px;user-select:all;word-break:break-all;">${cmd}</code>
-      <button type="button" class="rem-copy" style="white-space:nowrap;">${h(t('rem_copy'))}</button>
+      <code style="flex:1;background:#f4f4f4;padding:8px 10px;border-radius:6px;font-size:12px;user-select:all;word-break:break-all;">${h(cmd)}</code>
+      <button type="button" class="mp-copy" style="white-space:nowrap;">${h(t('rem_copy'))}</button>
     </div>
-    <div class="fhelp" style="margin-top:6px;">${h(t('rem_foot'))}</div>`;
-  d.querySelector('.rem-copy').onclick=()=>{
-    const ok=()=>{ const b=d.querySelector('.rem-copy'); b.textContent=t('rem_copied'); setTimeout(()=>b.textContent=t('rem_copy'),1500); };
+    <div class="fhelp" style="margin-top:6px;">${t(footKey)}</div>`;
+  d.querySelector('.mp-copy').onclick=()=>{
+    const ok=()=>{ const b=d.querySelector('.mp-copy'); b.textContent=t('rem_copied'); setTimeout(()=>b.textContent=t('rem_copy'),1500); };
     if(navigator.clipboard){ navigator.clipboard.writeText(cmd).then(ok).catch(ok); }
-    else { const t=document.createElement('textarea'); t.value=cmd; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); ok(); }
+    else { const ta=document.createElement('textarea'); ta.value=cmd; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); ok(); }
   };
   return d;
+}
+function _pushUrl(){
+  return normalizeBaseUrl((SERVER_URL&&SERVER_URL.recommended)||window.location.origin);
+}
+function renderReminderCmd(){
+  const u=_pushUrl();
+  return macPushCmdBox('rem_tip_off','rem_tip_on','rem_foot',
+    `curl -fsSL ${u}/agent/install_reminders.sh | sh -s -- ${u}`,
+    `curl -fsSL ${u}/agent/install_reminders.sh | sh -s -- uninstall`,
+    (CONFIG.reminders||{}).enabled);
+}
+function renderCcusagePushCmd(){
+  const u=_pushUrl();
+  return macPushCmdBox('ccu_tip_off','ccu_tip_on','ccu_foot',
+    `curl -fsSL ${u}/agent/install_ccusage.sh | sh -s -- ${u}`,
+    `curl -fsSL ${u}/agent/install_ccusage.sh | sh -s -- uninstall`,
+    (CONFIG.ai_usage||{}).enabled);
+}
+function renderQuotaPushCmd(){
+  const u=_pushUrl();
+  return macPushCmdBox('qt_tip_off','qt_tip_on','qt_foot',
+    `curl -fsSL ${u}/agent/install_quota.sh | sh -s -- ${u}`,
+    `curl -fsSL ${u}/agent/install_quota.sh | sh -s -- uninstall`,
+    (CONFIG.ai_usage||{}).enabled);
 }
 
 // 城市选择器:搜城市名 → GeoAPI 候选 → 选中写编码+城市名;折叠「高级」可手填 LocationID。
@@ -581,6 +618,47 @@ function updatePushCmds(){
   if(!u||!nix||!win) return;
   const c=pushCmds(u.value);
   nix.value=c.nix; win.value=c.win;
+}
+// Kindle 刷机命令:把「clone 仓库 + 用本看板地址刷 Kindle」做成一行,Mac/Win 复制即用。
+// 地址用本看板的局域网地址(SERVER_URL 候选),所以 Kindle 拉图指的是这台服务器(NAS/Mac),不用手填 IP。
+const KDASH_REPO='https://github.com/yizhixiaoheigou/kindle-dashboard.git';
+function kindleCmds(url){
+  const u=normalizeBaseUrl(url)||window.location.origin;
+  return {
+    nix:`git clone ${KDASH_REPO} kindle-dashboard && cd kindle-dashboard && sh installers/kindle/install.sh '' ${u}`,
+    win:`git clone ${KDASH_REPO} kindle-dashboard; cd kindle-dashboard; powershell -ExecutionPolicy Bypass -File installers\\kindle\\install.ps1 -ServerUrl ${u}`
+  };
+}
+function updateKindleCmds(){
+  const u=document.getElementById('kindle-url'), nix=document.getElementById('kindle-nix'), win=document.getElementById('kindle-win');
+  if(!u||!nix||!win) return;
+  const c=kindleCmds(u.value); nix.value=c.nix; win.value=c.win;
+}
+function kindleFlashBox(){
+  const en=LANG==='en';
+  const origin=window.location.origin;
+  const recommended=normalizeBaseUrl((SERVER_URL&&SERVER_URL.recommended)||origin);
+  const urls=[];
+  for(const u of [recommended, ...((SERVER_URL&&SERVER_URL.candidates)||[])]){ const x=normalizeBaseUrl(u); if(x&&!urls.includes(x)) urls.push(x); }
+  const choices=urls.length>1
+    ? `<select onchange="document.getElementById('kindle-url').value=this.value;updateKindleCmds();" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;">${urls.map(u=>`<option value="${h(u)}"${u===recommended?' selected':''}>${h(u)}</option>`).join('')}</select>`
+    : '';
+  const copy=en?'Copy':'复制';
+  const row=id=>`<div style="display:flex;gap:6px;align-items:stretch;margin-top:5px;">
+      <input type="text" readonly value="" id="${id}" style="flex:1;font:12px monospace;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fafaf9;">
+      <button type="button" onclick="copyCmd('${id}', event)" style="white-space:nowrap;">${copy}</button></div>`;
+  const d=document.createElement('div');
+  d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
+  d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;"><b>${en?'Flash this dashboard onto your Kindle':'把这个看板刷到 Kindle 上'}</b></div>
+    <div class="fhelp">${en?'Plug the jailbroken Kindle (USBNetwork on) into any computer, then copy one line below and run it there. The dashboard address is already filled in — no need to type any IP.':'把越狱并开了 USBNetwork 的 Kindle 插到任意一台电脑上,在那台电脑上复制下面一行运行即可。看板地址已自动填好,不用手输 IP。'}</div>
+    <div class="fhelp" style="margin-top:8px;">${en?'Dashboard address (Kindle pulls images from here):':'看板地址(Kindle 从这里拉图):'}</div>
+    ${choices}
+    <input type="text" id="kindle-url" value="${h(recommended)}" oninput="updateKindleCmds()" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;font:12px monospace;">
+    <div class="fhelp" style="margin-top:8px;">macOS / Linux ${en?'(Terminal)':'(终端)'}:</div>${row('kindle-nix')}
+    <div class="fhelp" style="margin-top:8px;">Windows ${en?'(run PowerShell as Administrator)':'(用管理员身份运行 PowerShell)'}:</div>${row('kindle-win')}
+    <div class="fhelp" style="margin-top:6px;">${en?'Don’t want it anymore? Replace <code>install</code> with <code>uninstall</code> in the command to restore the Kindle to a normal e-reader.':'不想用了?把命令里的 <code>install</code> 换成 <code>uninstall</code>,即可把 Kindle 变回正常电子书。'}</div>`;
+  setTimeout(updateKindleCmds,0);
+  return d;
 }
 function pushAgentBox(){
   const origin=window.location.origin;

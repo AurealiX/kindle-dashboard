@@ -72,6 +72,9 @@ echo "设置页:  $NAS_URL/setup${TOKEN:+?token=$TOKEN}"
 echo "健康检查: $NAS_URL/health"
 echo "Kindle:  $NAS_URL/kindle/frame.png"
 echo
+echo "刷 Kindle:打开上面【设置页】,「服务」卡片底部有现成的一行刷机命令(NAS 地址已填好,Mac/Win 都给)。"
+echo "          把 Kindle 插到任意一台电脑,复制那行到那台电脑上运行即可——无需手填 IP。"
+echo
 echo "=========================================="
 echo "  Mac 侧推送命令(在跑 Claude/Codex 的 Mac 上执行)"
 echo "=========================================="
