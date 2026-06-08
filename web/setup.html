@@ -634,21 +634,23 @@ function updatePushCmds(){
 // Kindle 刷机命令:把「clone 仓库 + 用本看板地址刷 Kindle」做成一行,Mac/Win 复制即用。
 // 地址用本看板的局域网地址(SERVER_URL 候选),所以 Kindle 拉图指的是这台服务器(NAS/Mac),不用手填 IP。
 const KDASH_REPO='https://github.com/yizhixiaoheigou/kindle-dashboard.git';
-function kindleCmds(url){
+function kindleCmds(url, kip){
   const u=normalizeBaseUrl(url)||window.location.origin;
+  const ip=(kip||'').trim()||'192.168.15.244';   // 空=USB 默认地址;填了=WiFi 方式用路由器查到的 IP
   // 幂等:目录已存在就更新,不存在才 clone(否则 clone 撞到已有目录会直接报错)。
   const clone =`git clone ${KDASH_REPO} kindle-dashboard 2>/dev/null; cd kindle-dashboard && git pull --ff-only 2>/dev/null; `;
   const cloneW=`if (Test-Path kindle-dashboard) { git -C kindle-dashboard pull --ff-only } else { git clone ${KDASH_REPO} kindle-dashboard }; cd kindle-dashboard; `;
   return {
-    nix:  clone +`sh installers/kindle/install.sh '' ${u}`,
-    win:  cloneW+`powershell -ExecutionPolicy Bypass -File installers\\kindle\\install.ps1 -ServerUrl ${u}`,
-    nixU: clone +`sh installers/kindle/uninstall.sh`,
-    winU: cloneW+`powershell -ExecutionPolicy Bypass -File installers\\kindle\\uninstall.ps1`
+    nix:  clone +`sh installers/kindle/install.sh ${ip} ${u}`,
+    win:  cloneW+`powershell -ExecutionPolicy Bypass -File installers\\kindle\\install.ps1 -KindleIp ${ip} -ServerUrl ${u}`,
+    nixU: clone +`sh installers/kindle/uninstall.sh ${ip}`,
+    winU: cloneW+`powershell -ExecutionPolicy Bypass -File installers\\kindle\\uninstall.ps1 -KindleIp ${ip}`
   };
 }
 function updateKindleCmds(){
   const u=document.getElementById('kindle-url'); if(!u) return;
-  const c=kindleCmds(u.value);
+  const kip=(document.getElementById('kindle-ip')||{}).value;
+  const c=kindleCmds(u.value, kip);
   const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
   set('kindle-nix',c.nix); set('kindle-win',c.win); set('kindle-nix-un',c.nixU); set('kindle-win-un',c.winU);
 }
@@ -668,10 +670,13 @@ function kindleFlashBox(){
   const d=document.createElement('div');
   d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
   d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;"><b>${en?'Flash this dashboard onto your Kindle':'把这个看板刷到 Kindle 上'}</b></div>
-    <div class="fhelp">${en?'Plug the jailbroken Kindle (USBNetwork on) into any computer, then copy one line below and run it there. The dashboard address is already filled in — no need to type any IP.':'把越狱并开了 USBNetwork 的 Kindle 插到任意一台电脑上,在那台电脑上复制下面一行运行即可。看板地址已自动填好,不用手输 IP。'}</div>
+    <div class="fhelp">${en?'Two ways to connect (both need SSH/USBNetwork enabled on the Kindle). Fill the two fields, then copy one line below and run it on a computer.':'两种连法二选一(都需要 Kindle 已开 SSH/USBNetwork)。填好下面两个框,复制对应一行到电脑上运行即可。'}</div>
     <div class="fhelp" style="margin-top:8px;">${en?'Dashboard address (Kindle pulls images from here):':'看板地址(Kindle 从这里拉图):'}</div>
     ${choices}
     <input type="text" id="kindle-url" value="${h(recommended)}" oninput="updateKindleCmds()" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;font:12px monospace;">
+    <div class="fhelp" style="margin-top:8px;">${en?'Kindle address:':'Kindle 地址:'}</div>
+    <input type="text" id="kindle-ip" value="192.168.15.244" oninput="updateKindleCmds()" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;font:12px monospace;">
+    <div class="fhelp" style="margin-top:3px;">${en?'• Method 1 (USB): plug Kindle into the computer, keep the default <code>192.168.15.244</code>.<br>• Method 2 (Wi-Fi, no driver hassle): connect the Kindle to Wi-Fi, find its IP in your router admin, and put it here.':'• 方式一(USB):Kindle 插电脑,保持默认 <code>192.168.15.244</code>。<br>• 方式二(WiFi,免装驱动、更省事):Kindle 连上 WiFi,在路由器后台查到它的 IP,填到这里。'}</div>
     <div class="fhelp" style="margin-top:8px;">macOS / Linux ${en?'(Terminal)':'(终端)'}:</div>${row('kindle-nix')}
     <div class="fhelp" style="margin-top:8px;">Windows ${en?'(run PowerShell as Administrator)':'(用管理员身份运行 PowerShell)'}:</div>${row('kindle-win')}
     <div class="fhelp" style="margin-top:12px;"><b>${en?'Don’t want it anymore? Restore the Kindle to a normal e-reader:':'不想用了?把 Kindle 变回正常电子书(直接复制运行,无需改任何东西):'}</b></div>
