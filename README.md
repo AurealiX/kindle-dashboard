@@ -141,20 +141,36 @@ bash installers/nas/install.sh
 
 **Mac 上(推数据到 NAS)**
 
-安装时脚本会打印这些命令,替换 `NAS_IP` 为你的 NAS 局域网地址:
+前提:这台 Mac 已经照上面「快速开始」clone 过仓库并跑过 `install.sh`(有 `.venv`、有 `config.yaml`)。把 `NAS_IP` 换成你 NAS 的局域网地址(如 `192.168.5.138`):
 
 ```bash
-# AI 用量(ccusage)
+cd kindle-dashboard    # 进 clone 过的仓库目录
+
+# ① AI 用量(ccusage):采集本机 Claude/Codex 日志,定时推给 NAS
 bash installers/macos/enable_ccusage_push.sh --url http://NAS_IP:8585
+# → 装 launchd 定时器(默认每 300 秒),后台自动推送;立即跑一次确认连通
 
-# 提醒事项
+# ② 提醒事项:读本机 Reminders.app,推给 NAS
 bash installers/macos/enable_reminders.sh --url http://NAS_IP:8585
+# → 装 launchd 定时器(默认每 300 秒);首次会弹 macOS「允许访问提醒事项」授权,点允许
 
-# AI 额度(Claude/Codex)
+# ③ AI 额度(Claude/Codex 5h·周窗口):采集后推给 NAS
 bash installers/macos/enable_quota.sh --url http://NAS_IP:8585
+# → Claude 走 statusLine(自动配);Codex 走 launchd 定时器
 ```
 
-每条命令装一个 launchd 定时器,后台自动推送。多台 Mac 各推各的,看板按日汇总相加(不覆盖)。
+每条命令会立即跑一次并打印结果,之后后台 launchd 定时推送,**Mac 重启后自动恢复**。
+
+停用某项推送:
+```bash
+bash installers/macos/disable_ccusage_push.sh     # 停 AI 用量推送
+bash installers/macos/disable_reminders.sh         # 停提醒推送
+bash installers/macos/disable_quota.sh             # 停额度推送
+```
+
+**多台 Mac / 多设备**:每台跑自己的 enable 命令即可,设备自动以主机名区分。看板服务按日期 + 模型把所有设备的数据**相加合并**(不是覆盖、不是取最大),AI 页显示的是所有设备的总量。
+
+**怎么确认推送成功**:打开 NAS 设置页(浏览器),对应模块应该有数据出现;或者 `curl http://NAS_IP:8585/health` 看 `rendered` 里有没有对应页面。
 
 **Kindle 上**
 
@@ -162,7 +178,7 @@ bash installers/macos/enable_quota.sh --url http://NAS_IP:8585
 sh installers/kindle/install.sh KINDLE_IP http://NAS_IP:8585
 ```
 
-把 Kindle 拉图地址指向 NAS 即可。
+把 Kindle 拉图地址指向 NAS 即可(第二个参数是看板服务地址)。
 
 **管理**
 
@@ -340,20 +356,36 @@ Config and data live in Docker volumes (`config` / `data`) — **rebuilding the 
 
 **On the Mac (push data to the NAS)**
 
-The install script prints these commands; replace `NAS_IP` with your NAS's LAN address:
+Prerequisite: this Mac must have already cloned the repo and run `install.sh` (has `.venv` and `config.yaml`). Replace `NAS_IP` with your NAS's LAN address (e.g. `192.168.5.138`):
 
 ```bash
-# AI usage (ccusage)
+cd kindle-dashboard    # enter the cloned repo directory
+
+# ① AI usage (ccusage): collect local Claude/Codex logs, push to NAS on a timer
 bash installers/macos/enable_ccusage_push.sh --url http://NAS_IP:8585
+# → installs a launchd timer (default every 300s); runs once immediately to confirm connectivity
 
-# Reminders
+# ② Reminders: read local Reminders.app, push to NAS
 bash installers/macos/enable_reminders.sh --url http://NAS_IP:8585
+# → installs a launchd timer (default every 300s); first run pops a macOS "allow Reminders access" dialog — click Allow
 
-# AI quota (Claude/Codex)
+# ③ AI quota (Claude/Codex 5h·weekly windows): collect and push to NAS
 bash installers/macos/enable_quota.sh --url http://NAS_IP:8585
+# → Claude via statusLine (auto-configured); Codex via launchd timer
 ```
 
-Each command installs a launchd timer that pushes in the background. Multiple Macs can each push their own data — the dashboard sums them by date (no overwriting).
+Each command runs once immediately and prints the result, then pushes in the background via launchd — **survives Mac reboot automatically**.
+
+To disable a specific push:
+```bash
+bash installers/macos/disable_ccusage_push.sh     # stop AI usage push
+bash installers/macos/disable_reminders.sh         # stop reminders push
+bash installers/macos/disable_quota.sh             # stop quota push
+```
+
+**Multiple Macs / devices**: just run the enable commands on each machine — devices are auto-identified by hostname. The dashboard service **sums all devices' data by date + model** (no overwriting, no max) so the AI page shows the combined total across all machines.
+
+**How to confirm pushes are working**: open the NAS settings page in a browser — the corresponding module should show data; or run `curl http://NAS_IP:8585/health` and check if the `rendered` array includes the relevant pages.
 
 **On the Kindle**
 
@@ -361,7 +393,7 @@ Each command installs a launchd timer that pushes in the background. Multiple Ma
 sh installers/kindle/install.sh KINDLE_IP http://NAS_IP:8585
 ```
 
-Point the Kindle's image URL at the NAS.
+Point the Kindle's image URL at the NAS (the second argument is the dashboard service address).
 
 **Management**
 
