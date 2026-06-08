@@ -426,13 +426,8 @@ def prep_context(now, cache, cfg=None):
             one["name"] = (mc.get("name") or key)
             machines.append(one)
             seen.add(key)
-    for key in sorted(metrics_map):                # 自动采纳未配置的设备(push 即插即显)
-        if key in seen:
-            continue
-        one = dev(metrics_map[key])
-        if one:
-            one["name"] = metrics_map[key].get("hostname") or key
-            machines.append(one)
+    # push 设备不再自动上看板——必须在设置页「发现设备」里点加进来才显示。
+    # 未加进来的设备只出现在 /api/discovered-devices(设置页用)。
     device = {"machines": machines}
 
     # ---- Printer ----

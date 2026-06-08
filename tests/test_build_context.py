@@ -102,11 +102,13 @@ def test_custom_rate_default_hidden():
 
 
 def test_device_and_printer():
-    ctx = bc.prep_context(NOW, _mock_cache())
+    # push 设备必须在 config 里才上看板(不再自动采纳未配置的)
+    cfg = {"devices": {"machines": [{"id": "nas-01", "name": "nas-01", "mode": "push"}]}}
+    ctx = bc.prep_context(NOW, _mock_cache(), cfg)
     ms = ctx["device"]["machines"]
     assert len(ms) == 1
     nas = ms[0]
-    assert nas["name"] == "nas-01"          # 未配置→自动采纳,用 hostname
+    assert nas["name"] == "nas-01"
     assert nas["cpu"] == 23 and nas["mem"] == 50
     assert nas["vols"][0]["name"] == "vol1"
     assert nas["show"]["cpu"] is True       # 无 fields=全显示
@@ -114,6 +116,12 @@ def test_device_and_printer():
     assert pr is not None and pr["printing"] is True
     assert pr["remaining_text"] == "2小时15分"               # 2.25 小时换算
     assert pr["state_text"] == "打印中"
+
+
+def test_unconfigured_push_device_not_on_dashboard():
+    """未在 config 加进来的 push 设备不上看板。"""
+    ctx = bc.prep_context(NOW, _mock_cache())
+    assert ctx["device"]["machines"] == []
 
 
 def test_battery():
