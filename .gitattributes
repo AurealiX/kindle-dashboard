@@ -1,0 +1,20 @@
+# 换行规范化 —— 跨平台关键。
+# 默认按 git 自动判定文本/二进制,文本一律 LF(即使在 Windows 检出)。
+* text=auto eol=lf
+
+# Unix 侧脚本【必须】LF:它们会被 scp 到 Kindle(busybox sh 认不了 \r,CRLF 会直接崩);
+# 也防 Windows 用户 clone(autocrlf=true)把这些脚本变成 CRLF。
+*.sh   text eol=lf
+*.bash text eol=lf
+*.js   text eol=lf
+
+# Windows 脚本用 CRLF(PowerShell / 批处理更稳)
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# 二进制不做换行转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary

@@ -115,6 +115,13 @@ sh installers/kindle/install.sh [KINDLE_IP] [SERVER_URL] [INTERVAL]
 sh installers/kindle/uninstall.sh [KINDLE_IP]   # 一键还原
 ```
 
+**Windows 主机**(Kindle 插 Windows 电脑刷图):用 PowerShell 版,**右键 PowerShell『以管理员身份运行』**(配 USB 网卡需管理员;Windows 10+ 自带的 OpenSSH 客户端要装上):
+```powershell
+powershell -ExecutionPolicy Bypass -File installers\kindle\install.ps1     # 一键刷图(可加 -KindleIp / -ServerUrl / -Interval)
+powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # 一键还原成正常电子书
+```
+> 逻辑与 .sh 完全一致,只是用 `netsh` 配 USB 网卡、用 Windows 自带 `ssh`/`scp`。**⚠️ 尚未真机验证**(Windows + Kindle),首次用按脚本提示排查(USB 识别为『网络适配器/RNDIS』、装 OpenSSH 客户端、输几次 `mario`)。`.gitattributes` 已强制 `*.sh` 用 LF,防 Windows clone 把推到 Kindle 的脚本变 CRLF 致崩。
+
 `install.sh` 会推送 `start.sh`/`stop.sh`、写服务地址到 `/mnt/us/dashboard.conf`、加 `@reboot` 自启(带 `# kindle-dashboard` 标记便于卸载精确移除)、启动显示。
 
 **刷新间隔**:`install.sh` 运行时会问「Kindle 多久拉一次新图(秒)」,常用 10/20/30/60、回车默认 20,写进 `dashboard.conf` 的 `INTERVAL`(也可作第三参数传入,如 `... [SERVER_URL] 30`;非交互默认 20,<5s 自动回退 20)。注意区分两个间隔:
