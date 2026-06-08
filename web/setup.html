@@ -624,9 +624,10 @@ function updatePushCmds(){
 const KDASH_REPO='https://github.com/yizhixiaoheigou/kindle-dashboard.git';
 function kindleCmds(url){
   const u=normalizeBaseUrl(url)||window.location.origin;
+  // 幂等:目录已存在就更新,不存在才 clone(否则 clone 撞到已有目录会直接报错)。
   return {
-    nix:`git clone ${KDASH_REPO} kindle-dashboard && cd kindle-dashboard && sh installers/kindle/install.sh '' ${u}`,
-    win:`git clone ${KDASH_REPO} kindle-dashboard; cd kindle-dashboard; powershell -ExecutionPolicy Bypass -File installers\\kindle\\install.ps1 -ServerUrl ${u}`
+    nix:`git clone ${KDASH_REPO} kindle-dashboard 2>/dev/null; cd kindle-dashboard && git pull --ff-only 2>/dev/null; sh installers/kindle/install.sh '' ${u}`,
+    win:`if (Test-Path kindle-dashboard) { git -C kindle-dashboard pull --ff-only } else { git clone ${KDASH_REPO} kindle-dashboard }; cd kindle-dashboard; powershell -ExecutionPolicy Bypass -File installers\\kindle\\install.ps1 -ServerUrl ${u}`
   };
 }
 function updateKindleCmds(){
