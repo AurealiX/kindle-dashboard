@@ -609,12 +609,16 @@ def api_styles():
 
 @app.get("/agent/{name}")
 def agent_file(name: str):
-    """下发推送 agent 脚本(被监控机 curl 下载安装)。白名单,纯文本。"""
+    """下发推送 agent 脚本(被监控机 curl 下载安装)。白名单,纯文本。
+    .ps1 文件加 UTF-8 BOM——Windows PowerShell 5.x 无 BOM 按系统 GBK 解码,中文乱码致解析失败。"""
     path = AGENT_FILES.get(name)
     if not path or not os.path.exists(path):
         return Response("not found", media_type="text/plain", status_code=404)
-    with open(path, encoding="utf-8") as f:
-        return Response(f.read(), media_type="text/plain; charset=utf-8")
+    with open(path, "rb") as f:
+        raw = f.read()
+    if name.endswith(".ps1") and not raw.startswith(b"\xef\xbb\xbf"):
+        raw = b"\xef\xbb\xbf" + raw
+    return Response(raw, media_type="text/plain; charset=utf-8")
 
 
 @app.get("/api/city-search")

@@ -484,22 +484,29 @@ function renderMstodo(){
 }
 
 // 公共:生成"说明 + 命令框 + 复制按钮 + 注脚"的 push 命令块
+// 已启用时同时显示安装命令(其他设备也要装)和卸载命令
 function macPushCmdBox(tipKey, tipOnKey, footKey, installCmd, uninstallCmd, isEnabled){
-  const cmd=isEnabled?uninstallCmd:installCmd;
-  const tip=isEnabled?t(tipOnKey):t(tipKey);
   const d=document.createElement('div');
   d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
-  d.innerHTML=`<div class="fhelp" style="margin-bottom:6px;">${tip}</div>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <code style="flex:1;background:#f4f4f4;padding:8px 10px;border-radius:6px;font-size:12px;user-select:all;word-break:break-all;">${h(cmd)}</code>
-      <button type="button" class="mp-copy" style="white-space:nowrap;">${h(t('rem_copy'))}</button>
-    </div>
-    <div class="fhelp" style="margin-top:6px;">${t(footKey)}</div>`;
-  d.querySelector('.mp-copy').onclick=()=>{
-    const ok=()=>{ const b=d.querySelector('.mp-copy'); b.textContent=t('rem_copied'); setTimeout(()=>b.textContent=t('rem_copy'),1500); };
-    if(navigator.clipboard){ navigator.clipboard.writeText(cmd).then(ok).catch(ok); }
-    else { const ta=document.createElement('textarea'); ta.value=cmd; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); ok(); }
-  };
+  const row=(cmd,id)=>`<div style="display:flex;gap:6px;align-items:center;margin-top:5px;">
+    <code style="flex:1;background:#f4f4f4;padding:8px 10px;border-radius:6px;font-size:12px;user-select:all;word-break:break-all;">${h(cmd)}</code>
+    <button type="button" class="mp-copy" data-cmd="${h(cmd)}" style="white-space:nowrap;">${h(t('rem_copy'))}</button></div>`;
+  if(isEnabled){
+    d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;">${t(tipKey)}</div>${row(installCmd)}
+      <div class="fhelp" style="margin-top:8px;">${t(tipOnKey)}</div>${row(uninstallCmd)}
+      <div class="fhelp" style="margin-top:6px;">${t(footKey)}</div>`;
+  } else {
+    d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;">${t(tipKey)}</div>${row(installCmd)}
+      <div class="fhelp" style="margin-top:6px;">${t(footKey)}</div>`;
+  }
+  d.querySelectorAll('.mp-copy').forEach(btn=>{
+    btn.onclick=()=>{
+      const cmd=btn.getAttribute('data-cmd');
+      const ok=()=>{ const prev=btn.textContent; btn.textContent=t('rem_copied'); setTimeout(()=>btn.textContent=prev,1500); };
+      if(navigator.clipboard){ navigator.clipboard.writeText(cmd).then(ok).catch(ok); }
+      else { const ta=document.createElement('textarea'); ta.value=cmd; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); ok(); }
+    };
+  });
   return d;
 }
 function _pushUrl(){
