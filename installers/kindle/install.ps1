@@ -50,11 +50,20 @@ function Ensure-UsbRoute {
   if (Test-Connection -Count 1 -Quiet $KindleIp -ErrorAction SilentlyContinue) { return $true }  # 已通则跳过(幂等)
   Write-Host "==> USB 网络未通,自动配置本机 USB 接口..."
   if (-not $IsAdmin) { Write-Host "   ! 配网卡需要管理员。请右键 PowerShell『以管理员身份运行』再跑本脚本。" -ForegroundColor Yellow; return $false }
-  # 拿到 169.254(APIPA,没 DHCP)的网卡,基本就是 Kindle 的 USB 网卡
-  $cands = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -like '169.254.*' }
+  # 只配【已连接(Up)】且拿到 169.254(APIPA)的网卡——那才可能是刚插上的 Kindle USB 网卡。
+  # 不碰断开的 WLAN/蓝牙/虚拟网卡(它们也常显示 169.254,误配会害你重连出问题)。
+  $upNames = @((Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' }).Name)
+  $cands = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+           Where-Object { $_.IPAddress -like '169.254.*' -and $upNames -contains $_.InterfaceAlias }
+  if (-not $cands) {
+    Write-Host "   ! 没找到【已连接】的 Kindle USB 网卡。最常见原因:" -ForegroundColor Yellow
+    Write-Host "     Kindle 现在是【USB 存储盘模式】(在 Windows 里显示成『Kindle Internal Storage USB Device』磁盘),不是网络模式。"
+    Write-Host "     → 在 Kindle 上用 KUAL 启动 USBNetwork,让它变成网络设备;若 Windows 认成未知设备,再到设备管理器装『远程 NDIS 兼容设备』驱动。然后重跑本命令。"
+    return $false
+  }
   foreach ($c in $cands) {
     $alias = $c.InterfaceAlias
-    Write-Host "   检测到候选 USB 接口『$alias』,临时配 192.168.15.201(只动这块 Kindle 网卡,不影响你上网)..."
+    Write-Host "   检测到已连接的候选 USB 网卡『$alias』,临时配 192.168.15.201(只动这块,不影响你上网)..."
     try { netsh interface ipv4 set address name="$alias" static 192.168.15.201 255.255.255.0 | Out-Null } catch {}
     Start-Sleep -Seconds 2
     if (Test-Connection -Count 1 -Quiet $KindleIp -ErrorAction SilentlyContinue) { Write-Host "   √ USB 网络已通" -ForegroundColor Green; return $true }
