@@ -625,15 +625,20 @@ const KDASH_REPO='https://github.com/yizhixiaoheigou/kindle-dashboard.git';
 function kindleCmds(url){
   const u=normalizeBaseUrl(url)||window.location.origin;
   // 幂等:目录已存在就更新,不存在才 clone(否则 clone 撞到已有目录会直接报错)。
+  const clone =`git clone ${KDASH_REPO} kindle-dashboard 2>/dev/null; cd kindle-dashboard && git pull --ff-only 2>/dev/null; `;
+  const cloneW=`if (Test-Path kindle-dashboard) { git -C kindle-dashboard pull --ff-only } else { git clone ${KDASH_REPO} kindle-dashboard }; cd kindle-dashboard; `;
   return {
-    nix:`git clone ${KDASH_REPO} kindle-dashboard 2>/dev/null; cd kindle-dashboard && git pull --ff-only 2>/dev/null; sh installers/kindle/install.sh '' ${u}`,
-    win:`if (Test-Path kindle-dashboard) { git -C kindle-dashboard pull --ff-only } else { git clone ${KDASH_REPO} kindle-dashboard }; cd kindle-dashboard; powershell -ExecutionPolicy Bypass -File installers\\kindle\\install.ps1 -ServerUrl ${u}`
+    nix:  clone +`sh installers/kindle/install.sh '' ${u}`,
+    win:  cloneW+`powershell -ExecutionPolicy Bypass -File installers\\kindle\\install.ps1 -ServerUrl ${u}`,
+    nixU: clone +`sh installers/kindle/uninstall.sh`,
+    winU: cloneW+`powershell -ExecutionPolicy Bypass -File installers\\kindle\\uninstall.ps1`
   };
 }
 function updateKindleCmds(){
-  const u=document.getElementById('kindle-url'), nix=document.getElementById('kindle-nix'), win=document.getElementById('kindle-win');
-  if(!u||!nix||!win) return;
-  const c=kindleCmds(u.value); nix.value=c.nix; win.value=c.win;
+  const u=document.getElementById('kindle-url'); if(!u) return;
+  const c=kindleCmds(u.value);
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
+  set('kindle-nix',c.nix); set('kindle-win',c.win); set('kindle-nix-un',c.nixU); set('kindle-win-un',c.winU);
 }
 function kindleFlashBox(){
   const en=LANG==='en';
@@ -657,7 +662,9 @@ function kindleFlashBox(){
     <input type="text" id="kindle-url" value="${h(recommended)}" oninput="updateKindleCmds()" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;font:12px monospace;">
     <div class="fhelp" style="margin-top:8px;">macOS / Linux ${en?'(Terminal)':'(终端)'}:</div>${row('kindle-nix')}
     <div class="fhelp" style="margin-top:8px;">Windows ${en?'(run PowerShell as Administrator)':'(用管理员身份运行 PowerShell)'}:</div>${row('kindle-win')}
-    <div class="fhelp" style="margin-top:6px;">${en?'Don’t want it anymore? Replace <code>install</code> with <code>uninstall</code> in the command to restore the Kindle to a normal e-reader.':'不想用了?把命令里的 <code>install</code> 换成 <code>uninstall</code>,即可把 Kindle 变回正常电子书。'}</div>`;
+    <div class="fhelp" style="margin-top:12px;"><b>${en?'Don’t want it anymore? Restore the Kindle to a normal e-reader:':'不想用了?把 Kindle 变回正常电子书(直接复制运行,无需改任何东西):'}</b></div>
+    <div class="fhelp" style="margin-top:4px;">macOS / Linux ${en?'(Terminal)':'(终端)'}:</div>${row('kindle-nix-un')}
+    <div class="fhelp" style="margin-top:6px;">Windows ${en?'(Admin PowerShell)':'(管理员 PowerShell)'}:</div>${row('kindle-win-un')}`;
   setTimeout(updateKindleCmds,0);
   return d;
 }
