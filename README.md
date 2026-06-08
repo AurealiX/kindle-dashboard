@@ -124,6 +124,10 @@ sh installers/kindle/uninstall.sh       # 还原 Kindle:停看板、移除开机
 bash installers/macos/uninstall.sh      # 停 Mac 服务(加 --purge 连 venv/数据一起删,彻底清空)
 ```
 
+> 🛟 **救命开关(防变砖,不需要 SSH/WiFi)**:万一看板占了屏、又连不上 Kindle(没开 USBNetwork、WiFi 也没连),
+> 把 Kindle 用 USB 插任意电脑——它**默认就是 U 盘模式**,在盘根目录**新建一个空文件 `dashboard.off`**,
+> 重启 Kindle 就回到正常界面(删掉该文件即恢复看板)。看板开机自启会先检查这个文件,有就不启动。
+
 ## NAS Docker 部署
 
 不想 Mac 常开？把看板服务跑在 NAS 上(Docker),Mac 只负责推数据。

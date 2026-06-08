@@ -124,4 +124,7 @@ Write-Host "  - 服务在 NAS / 常开主机:去路由器给它的 MAC 绑定一
 Write-Host "  - 服务在 Mac:IP 老变多半是 Apple『私有 Wi-Fi 地址』轮替 → 系统设置→Wi-Fi→详细信息→『私有 Wi-Fi 地址』改『固定』。"
 Write-Host "  IP 真变了:重跑本命令、-ServerUrl 换成新地址即可。"
 Write-Host ""
+Write-Host "[救命开关] 万一看板占了屏又连不上(没开 USBNetwork、WiFi 也没连):把 Kindle 插任意电脑" -ForegroundColor Cyan
+Write-Host "  (默认 U 盘模式,不需要 USBNetwork/WiFi),在盘根目录新建空文件 dashboard.off,重启即回正常界面;删掉恢复看板。"
+Write-Host ""
 Write-Host "  不想用了:以管理员运行  powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1"
