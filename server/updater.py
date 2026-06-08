@@ -65,8 +65,9 @@ def do_upgrade(repo, branch="main", restart_script=None):
     msg = "代码已更新到最新。"
     if restart_script and os.path.exists(restart_script):
         try:
+            env = dict(os.environ, KINDLE_SKIP_MENUBAR_RESTART="1")
             r = subprocess.run(["bash", restart_script],
-                               capture_output=True, text=True, timeout=180)
+                               capture_output=True, text=True, timeout=180, env=env)
             msg += "服务已重启。" if r.returncode == 0 else "但重启脚本返回非 0,请手动重启服务。"
         except Exception as e:
             msg += f"但自动重启失败({e}),请手动重启服务。"

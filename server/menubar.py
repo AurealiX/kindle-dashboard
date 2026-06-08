@@ -306,7 +306,20 @@ class DashboardBar(rumps.App):
             return
         ok, msg = updater.do_upgrade(REPO, restart_script=RESTART_SH)
         rumps.alert(t["upgrade_ok_title"] if ok else t["upgrade_fail_title"], msg)
+        if ok:
+            self._delayed_relaunch_menubar()
         self.refresh()
+
+    def _delayed_relaunch_menubar(self):
+        """升级后延迟重启菜单栏自己:fork 一个后台进程,等 2 秒再 unload+load。
+        不能同步做——restart.sh 的 unload 会杀掉当前进程,rumps.alert 来不及显示。"""
+        mb_plist = os.path.expanduser("~/Library/LaunchAgents/com.kindle-dashboard.menubar.plist")
+        if not os.path.exists(mb_plist):
+            return
+        subprocess.Popen(
+            ["bash", "-c", f"sleep 2 && launchctl unload '{mb_plist}' 2>/dev/null; launchctl load '{mb_plist}' 2>/dev/null"],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def _open(self, _):
         tok = ""

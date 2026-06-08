@@ -12,9 +12,11 @@ launchctl unload "$PLIST" 2>/dev/null
 launchctl load "$PLIST" 2>/dev/null
 launchctl start "$LABEL" 2>/dev/null
 
-# 菜单栏是独立 agent;更新代码后也一并重启,让它加载新 menubar.py(装过才动)
+# 菜单栏是独立 agent;更新代码后也一并重启,让它加载新 menubar.py(装过才动)。
+# 但如果是菜单栏自己触发的升级(KINDLE_SKIP_MENUBAR_RESTART=1),跳过——
+# 菜单栏会自己延迟重启,同步 unload 会杀掉正在跑的菜单栏进程。
 MB_PLIST="$HOME/Library/LaunchAgents/com.kindle-dashboard.menubar.plist"
-if [ -f "$MB_PLIST" ]; then
+if [ -f "$MB_PLIST" ] && [ "$KINDLE_SKIP_MENUBAR_RESTART" != "1" ]; then
   launchctl unload "$MB_PLIST" 2>/dev/null
   launchctl load "$MB_PLIST" 2>/dev/null && echo "✓ 菜单栏已一并重启"
 fi
