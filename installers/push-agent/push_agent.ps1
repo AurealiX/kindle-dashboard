@@ -1,6 +1,6 @@
-# Kindle Dashboard 推送 agent(Windows)—— 在【被监控的 Windows 机】上跑。
-# 循环:采集本机指标 → POST 到看板 /api/device-metrics → sleep 间隔。
-# 配置从同目录 agent.json 读(由 install_agent.ps1 写好)。一般不用手调,计划任务会装好并开机自启。
+# Kindle Dashboard push agent (Windows) — runs on the [monitored Windows machine].
+# Loop: collect local metrics -> POST to the dashboard /api/device-metrics -> sleep for the interval.
+# Config is read from agent.json in the same dir (written by install_agent.ps1). Normally no manual tuning needed; the scheduled task installs it and auto-starts at login.
 $ErrorActionPreference = "SilentlyContinue"
 
 $Dir = $PSScriptRoot
@@ -14,7 +14,7 @@ if ($Interval -lt 5) { $Interval = 30 }
 $HostName = $env:COMPUTERNAME
 $Collector = Join-Path $Dir "collect_windows.ps1"
 
-# JSON 字符串转义(防 ID/主机名里的 " 或 \ 破坏 body)
+# JSON string escaping (so a " or \ in the ID/hostname doesn't break the body)
 function Esc([string]$s) { return $s.Replace('\', '\\').Replace('"', '\"') }
 
 while ($true) {

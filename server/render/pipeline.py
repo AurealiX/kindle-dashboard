@@ -37,12 +37,27 @@ _CANDIDATES = [
 ]
 
 
+def _windows_candidates() -> list:
+    """Windows 系统 Chrome/Edge 常驻路径(展开 %ProgramFiles% / %LocalAppData% 等环境变量)。
+    Edge 与 Chrome 同为 Chromium 内核,headless --screenshot 行为一致,可作兜底。"""
+    envs = [os.environ.get(e, "") for e in ("ProgramFiles", "ProgramFiles(x86)", "LocalAppData")]
+    rels = [
+        r"Google\Chrome\Application\chrome.exe",
+        r"Chromium\Application\chrome.exe",
+        r"Microsoft\Edge\Application\msedge.exe",
+    ]
+    return [os.path.join(base, rel) for base in envs if base for rel in rels]
+
+
 def _playwright_chrome() -> str:
     """探测 playwright 自动下载的 chromium(venv 内安装,不依赖系统 Chrome)。"""
     home = os.path.expanduser("~")
     patterns = [
         home + "/Library/Caches/ms-playwright/chromium-*/chrome-mac*/Chromium.app/Contents/MacOS/Chromium",
         home + "/.cache/ms-playwright/chromium-*/chrome-linux*/chrome",
+        # Windows: playwright 默认缓存 %USERPROFILE%\AppData\Local\ms-playwright
+        os.path.join(os.environ.get("LOCALAPPDATA", os.path.join(home, "AppData", "Local")),
+                     "ms-playwright", "chromium-*", "chrome-win*", "chrome.exe"),
     ]
     for pat in patterns:
         hits = sorted(glob.glob(pat))
@@ -56,9 +71,13 @@ def find_chrome() -> str:
     env = os.environ.get("CHROME_BIN")
     if env and os.path.exists(env):
         return env
-    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
+    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable",
+                 "chrome", "msedge"):
         p = shutil.which(name)
         if p:
+            return p
+    for p in _windows_candidates():
+        if os.path.exists(p):
             return p
     for p in _CANDIDATES:
         if os.path.exists(p):

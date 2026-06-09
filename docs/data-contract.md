@@ -1,137 +1,137 @@
-# 数据契约(给风格作者看)
+# Data contract (for style authors)
 
-> **风格 = 同一批数据字段的不同皮肤。** 你做新风格时,模板里能用的变量就是本文列出的这些,名字/类型都已冻结。契约稳了,你随便换布局换 CSS,数据层一个字不用动。
+> **A style = a different skin over the same set of data fields.** When you build a new style, the variables you can use in templates are exactly the ones listed here — names and types are frozen. With a stable contract, you can swap layouts and CSS freely without touching the data layer.
 >
-> 权威定义在 `server/render/contract.py`(本文是它的人类可读摘要,改契约要两边同步)。
-> 缺数据/未配置时所有字段都有降级占位(数字→`0`,文本→`--`,列表→`[]`),所以模板**永远不会拿到 undefined**,放心用。
+> The authoritative definition lives in `server/render/contract.py` (this doc is its human-readable summary; changes to the contract must be mirrored in both).
+> When data is missing/unconfigured, every field has a degraded placeholder (numbers → `0`, text → `--`, lists → `[]`), so templates **never receive undefined** — use them freely.
 
-## 页面 → 数据段
+## Page → data section
 
-| 页面 key | 标题 | 用的数据段 | 依赖的数据源(没配则页面隐藏) |
+| Page key | Title | Data section used | Required data source (page hides if unconfigured) |
 |---|---|---|---|
-| `home` | 首页 | `home` + 顶层 | 天气、提醒事项 |
-| `ai` | AI 用量 | `ai` | AI 用量(ccusage) |
-| `device` | 设备 | `device` | 设备监控 |
-| `ha` | 智能家居 | `ha` | Home Assistant + 选了实体 |
-| `printer` | 打印机 | `printer` | Home Assistant |
+| `home` | Home | `home` + top-level | Weather, Reminders |
+| `ai` | AI usage | `ai` | AI usage (ccusage) |
+| `device` | Devices | `device` | Device monitoring |
+| `ha` | Smart home | `ha` | Home Assistant + entities selected |
+| `printer` | Printer | `printer` | Home Assistant |
 
-## 顶层字段(所有页可用)
+## Top-level fields (available on all pages)
 
-| 字段 | 类型 | 例 | 说明 |
+| Field | Type | Example | Notes |
 |---|---|---|---|
-| `lang` | str | `zh` / `en` | 界面/看板语言。模板用 `{% if lang == 'zh' %}…{% endif %}` 隐藏中国元素(英文版) |
-| `now` | str | `05/27 14:30` | 日期+时间 |
-| `time_hm` | str | `14:30` | 时:分 |
-| `clock` | str | `14:30:05` | 时:分:秒 |
-| `battery.level` | int\|`--` | `87` | Kindle 电量 |
-| `battery.charging` | bool | | 是否充电 |
-| `battery.has` | bool | | 无电池数据时为 false,模板应据此决定渲不渲电池块 |
+| `lang` | str | `zh` / `en` | UI / dashboard language. Templates use `{% if lang == 'zh' %}…{% endif %}` to hide Chinese elements (English build) |
+| `now` | str | `05/27 14:30` | date + time |
+| `time_hm` | str | `14:30` | hour:minute |
+| `clock` | str | `14:30:05` | hour:minute:second |
+| `battery.level` | int\|`--` | `87` | Kindle battery |
+| `battery.charging` | bool | | whether charging |
+| `battery.has` | bool | | false when there's no battery data; templates should use this to decide whether to render the battery block |
 
-> **i18n(中英双语)**:全局开关 `config.server.language`(zh|en,默认 zh)。
-> - **数据值已按语言产出**(模板直接显示,勿再翻):`home.weekday`(周X/Mon-Sun)、`printer.state_text`/`speed`/`remaining_text`、`ai.*_reset` 倒计时、提醒 `.dt` 标签、设备分区名 `总容量`/`Total`。
-> - **中国元素在英文版置空**:`home.lunar`/`ganzhi`/`term` = `""`,日历每格 `l`=`""` 且 `holiday`=False(公历数字保留)。
-> - **静态 UI 文案**:每套风格自带 `styles/<风格>/strings.json`(`{"zh":{...},"en":{...}}`),`render_page` 按 `lang` 注入为模板变量 `t`,模板写 `{{ t.键 }}`(英文缺键回退中文)。zh 值与原模板逐字一致 → 默认中文像素级不变。
+> **i18n (Chinese/English)**: global switch `config.server.language` (zh|en, default zh).
+> - **Data values are produced per-language** (display directly, don't re-translate): `home.weekday` (周X / Mon-Sun), `printer.state_text`/`speed`/`remaining_text`, `ai.*_reset` countdowns, reminder `.dt` labels, device section names `总容量` / `Total`.
+> - **Chinese elements are blanked in the English build**: `home.lunar`/`ganzhi`/`term` = `""`; each calendar cell `l`=`""` and `holiday`=False (the Gregorian number stays).
+> - **Static UI strings**: each style ships its own `styles/<style>/strings.json` (`{"zh":{...},"en":{...}}`); `render_page` injects them by `lang` as the template variable `t`, used as `{{ t.key }}` (a missing English key falls back to Chinese). The zh values are character-for-character identical to the original templates → the default Chinese stays pixel-identical.
 
-## `home` —— 首页
+## `home` — Home
 
-| 字段 | 类型 | 例 | 说明 |
+| Field | Type | Example | Notes |
 |---|---|---|---|
-| `date_md` / `date_dot` | str | `05/27` / `05.27` | 两种日期写法 |
+| `date_md` / `date_dot` | str | `05/27` / `05.27` | two date formats |
 | `weekday` | str | `周三` | |
-| `lunar` | str | `四月初一` | 农历 |
-| `ganzhi` | str | `丙午马年` | 干支生肖 |
-| `term` | str | `今日芒种` / `夏至还有3天` / `` | 节气,可能为空 |
+| `lunar` | str | `四月初一` | lunar date |
+| `ganzhi` | str | `丙午马年` | sexagenary / zodiac |
+| `term` | str | `今日芒种` / `夏至还有3天` / `` | solar term, may be empty |
 | `year` / `month` | int | | |
-| `weather.city` | str | `北京` | 城市名(GeoAPI 反查 location);未配置/查不到则空 |
-| `weather.temp` | str | `24` | 当前温度 |
-| `weather.cond` | str | `多云` | 天气 |
-| `weather.feels` | str | `26` | 体感 |
-| `weather.humidity` | str | `65` | 湿度 |
+| `weather.city` | str | `北京` | city name (GeoAPI reverse-lookup of location); empty if unconfigured / not found |
+| `weather.temp` | str | `24` | current temperature |
+| `weather.cond` | str | `多云` | conditions |
+| `weather.feels` | str | `26` | feels-like |
+| `weather.humidity` | str | `65` | humidity |
 | `weather.wind` | str | `西北风3级` | |
-| `weather.today_range` | str | `18–26°` | 今日温区 |
-| `weather.tmr_range` | str | `19–27°` | 明日温区 |
-| `weather.tmr_cond` | str | `晴` | 明日天气 |
-| `calendar` | list | | 月历:周行数组,每格 `None`(空)或 `{d, l, today, holiday, weekend}` |
-| `reminders.overdue` | list | `[{title, dt}]` | 逾期;dt 如 `05.20` |
-| `reminders.today` | list | `[{title, dt}]` | 今日 |
-| `reminders.upcoming` | list | `[{title, dt}]` | 将到期;dt 如 `明天`/`+3天`/`05.30` |
-| `reminders.total` | int | | 未完成总数 |
+| `weather.today_range` | str | `18–26°` | today's temp range |
+| `weather.tmr_range` | str | `19–27°` | tomorrow's temp range |
+| `weather.tmr_cond` | str | `晴` | tomorrow's conditions |
+| `calendar` | list | | month grid: array of week rows; each cell is `None` (empty) or `{d, l, today, holiday, weekend}` |
+| `reminders.overdue` | list | `[{title, dt}]` | overdue; dt e.g. `05.20` |
+| `reminders.today` | list | `[{title, dt}]` | today |
+| `reminders.upcoming` | list | `[{title, dt}]` | upcoming; dt e.g. `明天` / `+3天` / `05.30` |
+| `reminders.total` | int | | total unfinished |
 
-**日历格子** `{d:日, l:副文本(节假日/节气/农历), today:bool, holiday:bool, weekend:bool}`
+**Calendar cell** `{d:day, l:subtext (holiday/solar-term/lunar), today:bool, holiday:bool, weekend:bool}`
 
-## `ai` —— AI 用量
+## `ai` — AI usage
 
-| 字段 | 类型 | 例 | 说明 |
+| Field | Type | Example | Notes |
 |---|---|---|---|
-| `five_pct` / `five_reset` | int / str | `42` / `2小时后` | Claude 5h 额度已用% / 重置倒计时 |
-| `week_pct` / `week_reset` | int / str | | Claude 周额度 |
-| `cx_five_pct` / `cx_five_reset` | int / str | | Codex 5h 额度 |
-| `cx_week_pct` / `cx_week_reset` | int / str | | Codex 周额度 |
-| `today_cost` | str | `$12.30` | 今日总花费 |
-| `cc_cost` / `cc_tok` | str | `$8.10` / `1.2M` | Claude 今日花费 / token |
-| `cx_cost` / `cx_tok` | str | `$4.20` / `0.6M` | Codex 今日花费 / token |
-| `tok_7d` / `tok_30d` / `tok_all` | str | `8M` / `30M` / `120M` | token 累计 |
-| `chart` | list | `[{day:"27", cc_h:60, cx_h:30, val:"1.2M"}]` | 近 7 天柱状图;`cc_h`/`cx_h` 是 0-100 的高度% |
-| `custom_total` | str | `¥12.34` | 今日官方价 × 倍率(`ai_usage.claude_rate`/`codex_rate` 各一档)。两档都=1.0 时为空(不显示) |
-| `custom_name` | str | | 供应商名,当前恒空 → 模板回落显示「自定义」 |
+| `five_pct` / `five_reset` | int / str | `42` / `2小时后` | Claude 5h quota used% / reset countdown |
+| `week_pct` / `week_reset` | int / str | | Claude weekly quota |
+| `cx_five_pct` / `cx_five_reset` | int / str | | Codex 5h quota |
+| `cx_week_pct` / `cx_week_reset` | int / str | | Codex weekly quota |
+| `today_cost` | str | `$12.30` | today's total cost |
+| `cc_cost` / `cc_tok` | str | `$8.10` / `1.2M` | Claude today's cost / tokens |
+| `cx_cost` / `cx_tok` | str | `$4.20` / `0.6M` | Codex today's cost / tokens |
+| `tok_7d` / `tok_30d` / `tok_all` | str | `8M` / `30M` / `120M` | cumulative tokens |
+| `chart` | list | `[{day:"27", cc_h:60, cx_h:30, val:"1.2M"}]` | last-7-day bar chart; `cc_h`/`cx_h` are 0-100 height% |
+| `custom_total` | str | `¥12.34` | today's official price × multiplier (`ai_usage.claude_rate`/`codex_rate`, one each). Empty (hidden) when both = 1.0 |
+| `custom_name` | str | | provider name, currently always empty → templates fall back to "Custom" |
 
-## `device` —— 设备监控
+## `device` — Device monitoring
 
-`device.machines` 是**动态机器列表**(0~N 台,Windows/Linux/Mac 均可),**遍历渲染**。无机器时为空,该页隐藏。
-> 新风格按"可遍历的机器列表"设计,自适应 1 台 / 多台,**别写死台数或机器名**。每台按 `show` 决定显示哪些指标条。
+`device.machines` is a **dynamic machine list** (0–N machines, Windows/Linux/Mac), **iterated** in templates. Empty when there are no machines, and the page hides.
+> Design new styles around an "iterable machine list" that adapts to 1 or many machines — **don't hardcode a count or machine name**. Each machine's `show` decides which metric bars appear.
 
-单台机器对象字段:
+Per-machine object fields:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Notes |
 |---|---|---|
-| `name` | str | 显示名(可自定义;push 设备默认 hostname) |
-| `cpu` | int | CPU 使用率 % |
-| `mem` | int | 内存使用率 % |
-| `mem_used` / `mem_total` | str | 内存 |
-| `net_rx` / `net_tx` | str | 网络收发速率 |
-| `disk_r` / `disk_w` | str | 磁盘读写速率 |
-| `vols` | list | `[{name, pct, used, total}]` 各分区(已按勾选过滤) |
-| `show` | dict | `{cpu, mem, net, disk_io}` 各指标条是否显示(用户勾选;留空配置=全 True) |
+| `name` | str | display name (customizable; push devices default to hostname) |
+| `cpu` | int | CPU usage % |
+| `mem` | int | memory usage % |
+| `mem_used` / `mem_total` | str | memory |
+| `net_rx` / `net_tx` | str | network receive/send rate |
+| `disk_r` / `disk_w` | str | disk read/write rate |
+| `vols` | list | `[{name, pct, used, total}]` per partition (already filtered by selection) |
+| `show` | dict | `{cpu, mem, net, disk_io}` whether each metric bar shows (user selection; empty config = all True) |
 
-遍历范式:`{% for m in device.machines %} ... {% if m.show.cpu %}CPU {{ m.cpu }}%{% endif %} ... {% endfor %}`
+Iteration pattern: `{% for m in device.machines %} ... {% if m.show.cpu %}CPU {{ m.cpu }}%{% endif %} ... {% endfor %}`
 
-## `ha` —— 智能家居(实体卡片墙)
+## `ha` — Smart home (entity card wall)
 
-`ha.cards` 是一个列表;空列表时该页隐藏(配置即页面)。每张卡片字段已冻结:
+`ha.cards` is a list; the page hides when it's empty (config = pages). Each card's fields are frozen:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Notes |
 |---|---|---|
-| `name` | str | 显示名(用户覆盖 or HA 友好名) |
+| `name` | str | display name (user override or HA friendly name) |
 | `kind` | str | `toggle`/`lock`/`cover`/`binary`/`sensor`/`climate`/`media`/`presence`/`text` |
-| `icon` | str | MDI 图标名(`mdi:xxx`);空串=不显图标 |
-| `on` | bool | 激活态强调(开/有人/已锁/播放中…);sensor 恒 `false` |
-| `state_text` | str | 主显文本(toggle/lock/cover/binary/climate/media/presence/text) |
-| `value` | str | 主显数值(sensor;非 sensor 为空) |
-| `unit` | str | 数值单位(sensor;如 `°C` / `%` / `W`) |
-| `sub` | str | 次要行(climate 目标温度、media 标题…),可空 |
+| `icon` | str | MDI icon name (`mdi:xxx`); empty = no icon |
+| `on` | bool | active-state emphasis (on/present/locked/playing…); always `false` for sensor |
+| `state_text` | str | primary text (toggle/lock/cover/binary/climate/media/presence/text) |
+| `value` | str | primary value (sensor; empty for non-sensor) |
+| `unit` | str | value unit (sensor; e.g. `°C` / `%` / `W`) |
+| `sub` | str | secondary line (climate target temp, media title…), may be empty |
 
-> 主显规则:`value` 非空 → `value` 大字 + `unit` 小字;否则 `state_text` 大字。`sub` 非空再加一行小字。
-> 遍历范式:`{% for c in ha.cards %} ... {% if c.value %}{{ c.value }}{{ c.unit }}{% else %}{{ c.state_text }}{% endif %} ... {% endfor %}`
-> on/off 在墨水屏上靠「描边 vs 加重描边 + 实心点」区分,不靠颜色。
+> Primary-display rule: `value` non-empty → big `value` + small `unit`; otherwise big `state_text`. A non-empty `sub` adds one more small line.
+> Iteration pattern: `{% for c in ha.cards %} ... {% if c.value %}{{ c.value }}{{ c.unit }}{% else %}{{ c.state_text }}{% endif %} ... {% endfor %}`
+> on/off is distinguished on e-ink by "outline vs heavy outline + solid dot", not by color.
 
-## `printer` —— 打印机
+## `printer` — Printer
 
-整体为 `None` 时该页降级/隐藏。否则:
+When the whole thing is `None` the page degrades/hides. Otherwise:
 
-| 字段 | 类型 | 说明 |
+| Field | Type | Notes |
 |---|---|---|
-| `online` / `printing` | bool | 在线 / 正在打印 |
-| `state_text` | str | `打印中`/`空闲`/`离线`... |
+| `online` / `printing` | bool | online / currently printing |
+| `state_text` | str | `打印中` / `空闲` / `离线`... |
 | `progress` | int | 0-100 |
-| `task` | str | 文件名 |
-| `layer` / `total_layer` | str | 当前层 / 总层 |
+| `task` | str | file name |
+| `layer` / `total_layer` | str | current layer / total layers |
 | `remaining_text` | str | `2小时15分` |
-| `eta_clock` | str | 预计完成时刻 `16:45` |
-| `nozzle` / `nozzle_t` | str | 喷嘴温度 / 目标 |
-| `bed` / `bed_t` | str | 热床温度 / 目标 |
-| `speed` | str | 速度档位 |
-| `weight` / `material` | str | 耗材重量 / 类型 |
-| `cooling_fan` | str | 风扇转速 |
-| `name` | str | 打印机名 |
+| `eta_clock` | str | estimated completion time `16:45` |
+| `nozzle` / `nozzle_t` | str | nozzle temp / target |
+| `bed` / `bed_t` | str | bed temp / target |
+| `speed` | str | speed level |
+| `weight` / `material` | str | filament weight / type |
+| `cooling_fan` | str | fan speed |
+| `name` | str | printer name |
 
-> 当前贴合单台 3D 打印机(拓竹)。P2 会抽象成「任意 HA 实体卡片」以降低品牌绑定,届时契约扩展、本表更新。
+> Currently fits a single 3D printer (Bambu Lab). P2 will abstract it into "any HA entity card" to reduce brand lock-in; the contract will then extend and this table will be updated.

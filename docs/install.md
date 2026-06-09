@@ -1,174 +1,184 @@
-# 安装指南(详细)
+# Installation guide (detailed)
 
-> 总览见 [README](../README.md)。本文补充各数据源配置、Kindle 前置、故障排查、验证状态。
+> See the [README](../README.md) for an overview. This doc adds per-data-source config, Kindle prerequisites, troubleshooting, and verification status.
 
-## 一、Mac 服务
+## 1. Mac service
 
 ```bash
 bash installers/macos/install.sh
 ```
 
-手动起服务(调试用):
+Run the service manually (for debugging):
 
 ```bash
-.venv/bin/python -m server.run     # 读 config.yaml 的端口,绑 0.0.0.0
+.venv/bin/python -m server.run     # reads the port from config.yaml, binds 0.0.0.0
 ```
 
-- 配置文件:**仓库外** `~/.config/kindle-dashboard/config.yaml`(首次从 `config.example.yaml` 生成,详见下「配置文件位置」)
-- 日志:`data/*.log`(service / menubar / codex-quota / reminders);**服务自动轮转**——超 5MB 截断只留最近 1MB,长期跑不爆盘,无需手动清。
-- 改端口需重启服务;其余配置网页保存即热重载
-- **访问令牌**(防同 WiFi 他人访问设置页):首次启动自动生成,存 `config.yaml` 的 `server.access_token`;`install.sh` 装完会打印 `http://<IP>:端口/setup?token=...`,**用这个带令牌的链接打开设置页**(或点菜单栏「打开设置页」)。`/api/*` 与预览需令牌;**Kindle 拉图(`/kindle/frame.png`)、设备上报、`/health` 豁免**,不受影响。令牌留空=不鉴权(不推荐)。
+- Config file: **outside the repo** at `~/.config/kindle-dashboard/config.yaml` (first generated from `config.example.yaml`; see "Config file location" below)
+- Logs: `data/*.log` (service / menubar / codex-quota / reminders); **auto-rotated by the service** — truncated to the last 1MB past 5MB, so long runs won't fill the disk and need no manual cleanup.
+- Changing the port needs a service restart; all other config hot-reloads on save from the web page
+- **Access token** (keeps others on the same WiFi out of the settings page): auto-generated on first start, stored in `server.access_token` of `config.yaml`; after `install.sh` finishes it prints `http://<IP>:port/setup?token=...` — **open the settings page via this token link** (or click "Open settings" in the menu bar). `/api/*` and preview require the token; **Kindle image fetch (`/kindle/frame.png`), device reporting, and `/health` are exempt**. A blank token = no auth (not recommended).
 
-安装脚本会自动处理依赖,中途会问你两件事:
-- **渲染引擎**:没检测到 Chrome 时,问是否自动下载内置 chromium(playwright,约 150MB,装进 venv、不动系统)。选 Y 即可,无需自己装 Chrome。
-- **AI 用量统计**:问是否启用(见下「AI 用量」);选启用会自动检测 Node + ccusage,缺了再安装,不用你手动装。
+The installer handles dependencies automatically and asks you two things along the way:
+- **Render engine**: when no Chrome is detected, it asks whether to auto-download a bundled chromium (playwright, ~150MB, into the venv, not touching your system). Just pick Y — no need to install Chrome yourself.
+- **AI usage stats**: asks whether to enable (see "AI usage" below); enabling auto-detects Node + ccusage and installs what's missing, so you don't have to.
 
-**菜单栏程序**:装完后 Mac 顶部状态栏只显示 Kindle 小图标,不显示「看板」文字。点开可看运行状态、当前版本、打开设置页、重启/启停服务、**检查更新**,也可用「开机自启」勾选项控制主服务下次登录是否自动启动。安装脚本会生成一个本地 `LSUIElement` app bundle,只显示在顶部状态栏,不会在 Dock 里显示 Python 图标。依赖 `rumps`,install.sh 会自动装(老环境的 venv 若缺它,重跑 install.sh 即补上)。
+**Menu-bar app**: after install, the macOS status bar shows only a small Kindle icon, no "dashboard" text. Click it to see run status, current version, open the settings page, restart/start/stop the service, and **check for updates**; the "Start at login" checkbox controls whether the main service auto-starts at next login. The installer generates a local `LSUIElement` app bundle that only shows in the status bar, not as a Python icon in the Dock. It depends on `rumps`, which install.sh installs automatically (if an old venv lacks it, re-run install.sh to add it).
 
-**配置文件位置**:真实配置在**仓库外** `~/.config/kindle-dashboard/config.yaml`(`KINDLE_CONFIG` 环境变量可覆盖)。这样升级 / 重装 / 删库重拉**都不丢设置**;若老版本把 `config.yaml` 放在仓库内,首次启动会自动迁移过去。
+**Config file location**: the real config lives **outside the repo** at `~/.config/kindle-dashboard/config.yaml` (override with the `KINDLE_CONFIG` env var). This way upgrades / reinstalls / delete-and-reclone **never lose settings**; if an old version put `config.yaml` inside the repo, it's auto-migrated on first start.
 
-### 更新已部署的服务(代码有新版时)
-配置改动网页保存即热重载;但 **Python 代码更新必须重启进程**才生效。两种方式:
-- **菜单栏一键(推荐)**:点顶部菜单栏图标 → **检查更新** → 有新版会提示,点「升级」自动 `git pull --ff-only` + 重启(配置在仓库外,升级不动你的设置)。
-- **命令行**:`cd ~/kindle-dashboard && git pull` 后跑 `bash installers/macos/restart.sh`(主服务+菜单栏一并重启),或重跑 `bash installers/macos/install.sh`(更新依赖+重启+自检)。
-- 验证:浏览器开 `http://<本机IP>:端口/health`。
-> ⚠️ 不要直接在网络共享盘(SMB/NFS,Mac 上的 `/Volumes/...`)里跑服务:venv 在网络盘建不干净。务必先把项目拷到本地盘(如 `~/kindle-dashboard`)再装/更新。
-> 在线升级要求看板是用 `git clone` 装的(非 git 目录菜单栏会提示无法在线升级,改用命令行覆盖)。
+### Updating a deployed service (when there's a new code version)
+Config changes hot-reload on save; but **Python code updates require restarting the process** to take effect. Two ways:
+- **One-click from the menu bar (recommended)**: click the status-bar icon → **Check for updates** → if a new version exists, click "Upgrade" to auto `git pull --ff-only` + restart (config is outside the repo, so upgrades don't touch your settings).
+- **Command line**: `cd ~/kindle-dashboard && git pull`, then run `bash installers/macos/restart.sh` (restarts main service + menu bar together), or re-run `bash installers/macos/install.sh` (update deps + restart + self-check).
+- Verify: open `http://<your-IP>:port/health` in a browser.
+> ⚠️ Don't run the service directly on a network share (SMB/NFS, `/Volumes/...` on Mac): the venv can't be built cleanly on a network drive. Always copy the project to a local disk (e.g. `~/kindle-dashboard`) before installing/updating.
+> Online upgrade requires the dashboard to have been installed via `git clone` (in a non-git directory the menu bar will say online upgrade isn't possible — use the command line to overwrite instead).
 
-## 二、各数据源配置
+## 2. Per-data-source configuration
 
-### 天气(QWeather)
-1. 注册 [和风天气](https://dev.qweather.com/) 免费开发者
-2. 拿到 **API Key** 和**专属 API Host**(形如 `xxx.re.qweatherapi.com`)
-3. 查城市 **LocationID**(如北京 `101010100`)
-4. 设置页「天气」填入 → 首页出现天气
+### Weather (QWeather)
+1. Register as a free developer at [QWeather](https://dev.qweather.com/)
+2. Get your **API Key** and **dedicated API Host** (like `xxx.re.qweatherapi.com`)
+3. Look up the city **LocationID** (e.g. Beijing `101010100`)
+4. Fill them into the settings page "Weather" → the home page shows weather
 
-### Home Assistant(打印机/更多设备)
-1. HA 用户资料页 → 创建**长期访问令牌**(Long-Lived Access Token)
-2. 设置页「Home Assistant」填地址 + 令牌
-3. 「3D 打印机」点「扫描」选择打印机 → 保存后打印机页出现
+### Home Assistant (printer / more devices)
+1. HA user profile page → create a **Long-Lived Access Token**
+2. Fill the address + token into the settings page "Home Assistant"
+3. In "3D printer" click "Scan" to select the printer → after saving, the printer page appears
 
-### AI 用量(ccusage)
-- **本机直采,零配置,无中间服务**:安装时回答"启用 AI 用量"→ 自动装 Node + [ccusage](https://github.com/ryoppippi/ccusage) 并把 `ai_usage.enabled` 置 true,服务端每轮跑 `ccusage claude/codex daily --json` 读本机日志(见 `server/sources/ccusage_cli.py`)。看板服务跑在哪台机器就读那台的用量。
-- 「额度」(5h/周窗口)是另一回事(ccusage 不提供),见下「AI 额度」小节;不启用时 AI 页额度显示 0%(诚实降级)。
+### AI usage (ccusage)
+- **Local collection, zero config, no middleware**: answer "enable AI usage" at install time → it auto-installs Node + [ccusage](https://github.com/ryoppippi/ccusage) and sets `ai_usage.enabled` true; each round the server runs `ccusage claude/codex daily --json` to read local logs (see `server/sources/ccusage_cli.py`). Whichever machine runs the dashboard service is the one whose usage is read.
+- "Quota" (5h/weekly windows) is a separate thing (ccusage doesn't provide it); see the "AI quota" section below; when not enabled, the AI page shows quota 0% (honest degradation).
 
-### AI 额度(Claude 5h/周 + Codex 5h/周,仅 macOS)
-在 AI 页显示 Claude / Codex 的额度用量%。**push 模式**:在跑 Claude Code / Codex CLI 的机器上采集,POST 到看板 `/api/rate-limits`(看板服务本身拿不到这些数据,只能被设备送上门)。
+### AI quota (Claude 5h/weekly + Codex 5h/weekly)
+Shows Claude / Codex quota usage % on the AI page. **Push model**: collected on the machine running Claude Code / Codex CLI, POSTed to the dashboard `/api/rate-limits` (the dashboard service itself can't obtain this data — devices must deliver it).
 
-- **Claude**(官方机制,稳):走 Claude Code 的 **statusLine** —— Claude Code 把含 `rate_limits` 的 JSON 从 stdin 喂给你配的状态栏命令。`enable_quota.sh` 检测 `~/.claude/settings.json`:**没配过 statusLine 就备份后写入**指向 `installers/macos/quota/claude_statusline.py`;**已自定义则不覆盖**,打印「把那段 POST 抄进你自己的 statusline」的指引(脚本里 `# >>> 上报额度` 到 `# <<<` 那段)。
-- **Codex**(⚠️ 非公开接口,可能失效):`codex_quota.py` 读 `~/.codex/auth.json` 调 `chatgpt.com/backend-api/wham/usage`,launchd 定时上报。`wham/usage` 是 OpenAI 内部接口、无文档,**官方一改即失效**(不影响 Claude)。国内访问 chatgpt.com 多半要代理:设置页「AI 用量」填 **Codex 代理**(或 config 设 `ai_usage.codex_proxy: http://127.0.0.1:7897`)。
+- **Claude** (official mechanism, stable): rides Claude Code's **statusLine** — Claude Code pipes a JSON containing `rate_limits` into your configured status-line command via stdin. The bundled script reads that and POSTs it to the dashboard. **This works on any OS Claude Code runs on, including Windows — no launchd, no daemon.**
+  - **macOS**: `installers/macos/enable_quota.sh` checks `~/.claude/settings.json` — if no statusLine is configured, it backs up and writes one pointing at `installers/macos/quota/claude_statusline.py`; if you already customized it, it won't overwrite, and prints guidance to copy the POST block into your own status line (the `# >>> push quota` to `# <<<` section in the script).
+  - **Windows**: use `installers/windows/quota/claude_statusline.py`. Set the push URL in `installers/windows/quota/quota.conf`, then point your status line at the script in `~/.claude/settings.json`:
+    ```json
+    "statusLine": {
+      "type": "command",
+      "command": "\"<repo>\\.venv\\Scripts\\python.exe\" \"<repo>\\installers\\windows\\quota\\claude_statusline.py\"",
+      "refreshInterval": 180
+    }
+    ```
+    The status bar shows `Ctx · 5h · Wk` and pushes the quota (throttled by `KINDLE_QUOTA_PUSH_INTERVAL`). The script is pure stdlib and uses `curl` (shipped in Windows 10/11).
+- **Codex** (⚠️ non-public endpoint, may break): `codex_quota.py` reads `~/.codex/auth.json` and calls `chatgpt.com/backend-api/wham/usage`, reported on a launchd timer. `wham/usage` is an internal, undocumented OpenAI endpoint — **an official change can break it at any time** (doesn't affect Claude). Reaching chatgpt.com from some regions needs a proxy: fill in **Codex proxy** in the settings page "AI usage" (or set `ai_usage.codex_proxy: http://127.0.0.1:7897` in config). Codex quota is **macOS-only** for now.
 
-启用方式(在装看板的 Mac 上、项目目录执行):
-- **装看板时**:`install.sh` 会问「是否启用 AI 额度?」+「Codex 多久上报一次(秒)」,选 `y` 即自动装好。
-- **事后想加**:`bash installers/macos/enable_quota.sh`。脚本会同步把 `ai_usage.enabled` 置 true,避免装了额度采集但 AI 页仍被隐藏。
-- **停用**:`bash installers/macos/disable_quota.sh`(卸 Codex launchd;Claude 的 statusLine 按提示自行撤)
-- **间隔**:`ai_usage.codex_quota_interval`(秒,launchd)/ `ai_usage.claude_quota_interval`(秒,statusLine 节流);改后重跑 `enable_quota.sh` 生效。
+How to enable (run on the Mac that hosts the dashboard, in the project directory):
+- **At install time**: `install.sh` asks "Enable AI quota?" + "How often should Codex report (seconds)?"; pick `y` and it's set up automatically.
+- **Add later**: `bash installers/macos/enable_quota.sh`. The script also sets `ai_usage.enabled` true to avoid having quota collection installed while the AI page stays hidden.
+- **Disable**: `bash installers/macos/disable_quota.sh` (removes the Codex launchd job; undo Claude's statusLine yourself per the printed guidance).
+- **Intervals**: `ai_usage.codex_quota_interval` (seconds, launchd) / `ai_usage.claude_quota_interval` (seconds, statusLine throttle); re-run `enable_quota.sh` after changing.
 
-### 设备监控(Win/Linux/Mac)
-**看板所在机(这台 Mac)**:安装时回答"启用本机性能监控"即可(自动加一台 `local` 设备),或事后在设置页「设备监控」加一台『本机直读』。
+### Device monitoring (Win/Linux/Mac)
+**The dashboard host (this Mac)**: answer "enable local performance monitoring" at install time (auto-adds one `local` device), or add a "local read" machine later in the settings page "Device monitoring".
 
-**另一台机器(NAS / Linux / Mac)三选一:**
-- **本机直读(local)**:仅服务所在机,零额外安装。
-- **推(agent,推荐,不交密码)**:在设置页「设备监控」底部复制那行命令,到目标机上跑一次即可:
+**Another machine (NAS / Linux / Mac), pick one of three:**
+- **Local read (local)**: only the host running the service, zero extra install.
+- **Push (agent, recommended, no password shared)**: copy the command at the bottom of the settings page "Device monitoring" card and run it once on the target machine:
   ```sh
-  curl -fsSL http://<看板IP>:<端口>/agent/install.sh | sh -s -- http://<看板IP>:<端口> 30
+  curl -fsSL http://<dashboard-IP>:<port>/agent/install.sh | sh -s -- http://<dashboard-IP>:<port> 30
   ```
-  装好后每 30 秒(改末尾数字调间隔)推一次,目标机自动出现在设置页「发现设备」里,点一下加进来改名。
-  设置页生成这行命令时,**看板地址下拉里有个 `Xxx.local:端口` 选项**——目标机支持 mDNS(多数 Mac/Linux)的话选它,可绕开 Mac IP 漂移(IP 变了名字不变);不支持 mDNS 的设备用 IP 地址即可。
-  自启:Linux 用 `@reboot` cron、macOS 用 launchd。卸载:`... | sh -s -- uninstall`。
-  **Windows**:设置页同时给出 PowerShell 命令(`iwr .../agent/install.ps1 ... | ...`),自启用『计划任务』(登录启动);卸载把末尾换成 `uninstall`。
-  **间隔由目标机 agent 自己定(装时设),看板设置页改不了**(与本机/SSH 的服务端间隔不同)。
-- **拉(SSH)**:服务端 SSH 进去读,目标机零安装;密码登录需主机装 `sshpass`,推荐用免密 key。
-- `platform` 选对(auto/linux/macos/windows);可重命名、勾选只显示部分指标。
+  After install it pushes every 30 seconds (change the trailing number for the interval); the target machine appears in the settings page "Discovered devices" — click to add and rename it.
+  When the settings page generates this command, **the dashboard-address dropdown has an `Xxx.local:port` option** — pick it if the target supports mDNS (most Mac/Linux) to dodge Mac IP drift (IP changes, name doesn't); use the IP address for devices without mDNS.
+  Autostart: Linux uses `@reboot` cron, macOS uses launchd. Uninstall: `... | sh -s -- uninstall`.
+  **Windows**: the settings page also gives a PowerShell command (`iwr .../agent/install.ps1 ... | ...`), autostart via a "Scheduled Task" (on login); uninstall by replacing the trailing arg with `uninstall`.
+  **The interval is set by the target machine's agent (at install time) and can't be changed from the settings page** (unlike the server-side interval for local/SSH).
+- **Pull (SSH)**: the server SSHes in and reads, zero install on the target; password login needs `sshpass` on the host — a passwordless key is recommended.
+- Pick the right `platform` (auto/linux/macos/windows); you can rename and select only some metrics to show.
 
-采集脚本:`server/sources/collectors/`(linux.sh / macos.sh / windows.ps1),本机直读 / SSH 拉 / 推 agent 三处复用。
-推送 agent:`installers/push-agent/`(`install_agent.sh` 由看板 `/agent/install.sh` 下发;`push_agent.sh` 循环采集+POST)。
+Collection scripts: `server/sources/collectors/` (linux.sh / macos.sh / windows.ps1), reused across local read / SSH pull / push agent.
+Push agent: `installers/push-agent/` (`install_agent.sh` is served by the dashboard's `/agent/install.sh`; `push_agent.sh` loops collect + POST).
 
-### 提醒事项(苹果,仅 macOS)
-把本机「提醒事项」App(含 iPhone 经 iCloud 同步过来的)显示到看板。原理:一个后台 agent 每 5 分钟用 JXA 读 Reminders.app,POST 到 `/api/apple-sync`。
+### Reminders (Apple, macOS only)
+Show the local "Reminders" app (including iPhone items synced via iCloud) on the dashboard. How it works: a background agent reads Reminders.app via JXA every 5 minutes and POSTs to `/api/apple-sync`.
 
-启用方式(任选其一,两种都需在你装看板的 Mac 终端、项目目录下执行):
-- **装看板时**:`install.sh` 会问「是否启用提醒事项同步?」,选 `y` 即自动装好。
-- **事后想加**:在设置页「提醒事项」卡片复制那行命令运行:
+How to enable (either way; both run in a terminal on the Mac hosting the dashboard, in the project directory):
+- **At install time**: `install.sh` asks "Enable reminders sync?"; pick `y` and it's set up automatically.
+- **Add later**: copy the command from the settings page "Reminders" card and run it:
   ```bash
   bash installers/macos/enable_reminders.sh
   ```
-- **停用**:`bash installers/macos/disable_reminders.sh`
+- **Disable**: `bash installers/macos/disable_reminders.sh`
 
-首次运行会弹「允许访问提醒事项」,**必须点【允许】**,否则读不到。误点拒绝:系统设置 → 隐私与安全性 → 提醒事项,勾选 终端/osascript 后重跑命令。
+The first run pops "Allow access to Reminders" — **you must click Allow**, or it can't read them. If you accidentally denied: System Settings → Privacy & Security → Reminders, tick Terminal/osascript, then re-run the command.
 
-> 为什么不在网页上放个开关?因为它要装本机后台 agent + 一次系统授权,只有终端前台运行才弹得出授权框;网页点开关会变成「显示开着、其实没数据」。所以用一行命令一键搞定,装/卸状态以 agent 是否在为准(设置页徽章)。
+> Why not a web toggle? Because it needs a local background agent + a one-time system authorization, and only a foreground terminal run can surface the auth dialog; a web toggle would become "shown on, actually no data". So a one-line command does it all; install/uninstall state follows whether the agent is running (settings-page badge).
 
-## 三、Kindle 前置
+## 3. Kindle prerequisites
 
-1. **越狱**:按你的固件版本找对应方法(本项目不含越狱工具)
-2. **开 USBNetwork**:让 Kindle 通过 USB 提供 SSH(默认 IP 常为 `192.168.15.244`)
-3. **装 fbink**:刷屏必需,通常随 KUAL/越狱工具包提供
-4. 数据线用支持**数据传输**的(非纯充电线)
-5. **SSH root 密码**:安装时会要求输入。越狱包(KUAL/USBNetwork 等)**常见默认密码是 `mario`**;若你越狱时改过,用你设的。`install.sh` 运行时也会提示这条。
+1. **Jailbreak**: find the method for your firmware version (this project does not include jailbreak tools)
+2. **Enable USBNetwork**: let the Kindle provide SSH over USB (default IP is usually `192.168.15.244`)
+3. **Install fbink**: required to write the screen, usually provided with KUAL/jailbreak toolkits
+4. Use a **data-capable** USB cable (not a charge-only cable)
+5. **SSH root password**: required at install time. Jailbreak packages (KUAL/USBNetwork etc.) **commonly default to `mario`**; if you changed it during jailbreak, use yours. `install.sh` also reminds you of this at runtime.
 
-然后主机端:
+Then on the host:
 
 ```bash
-sh installers/kindle/detect.sh [KINDLE_IP]      # 识别:USB 接入 + SSH 可达
+sh installers/kindle/detect.sh [KINDLE_IP]      # detect: USB connected + SSH reachable
 sh installers/kindle/install.sh [KINDLE_IP] [SERVER_URL] [INTERVAL]
-sh installers/kindle/uninstall.sh [KINDLE_IP]   # 一键还原
+sh installers/kindle/uninstall.sh [KINDLE_IP]   # one-command restore
 ```
 
-**Windows 主机**(Kindle 插 Windows 电脑刷图):用 PowerShell 版,**右键 PowerShell『以管理员身份运行』**(配 USB 网卡需管理员;Windows 10+ 自带的 OpenSSH 客户端要装上):
+**Windows host** (Kindle plugged into a Windows PC to push images): use the PowerShell version, **right-click PowerShell → "Run as administrator"** (configuring the USB network adapter needs admin; the built-in OpenSSH client on Windows 10+ must be installed):
 ```powershell
-powershell -ExecutionPolicy Bypass -File installers\kindle\install.ps1     # 一键刷图(可加 -KindleIp / -ServerUrl / -Interval)
-powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # 一键还原成正常电子书
+powershell -ExecutionPolicy Bypass -File installers\kindle\install.ps1     # one-command image push (optional -KindleIp / -ServerUrl / -Interval)
+powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # one-command restore to a normal e-reader
 ```
-> 逻辑与 .sh 一致(用 `netsh` 配 USB 网卡、Windows 自带 `ssh`/`scp`)。`.gitattributes` 强制 `*.sh`=LF、`*.ps1`=BOM+CRLF,防 Windows clone 破坏脚本(`.ps1` 无 BOM 会被 PS5 按 GBK 读、中文乱码)。
+> The logic matches the .sh version (configures the USB adapter with `netsh`, uses Windows' built-in `ssh`/`scp`). `.gitattributes` forces `*.sh`=LF and `*.ps1`=BOM+CRLF to keep a Windows clone from corrupting the scripts (a `.ps1` without BOM gets read as GBK by PS5, garbling Chinese).
 >
-> **两种连法(设置页「服务」卡的刷机框有 Kindle IP 输入框,填好自动拼好完整命令)**:
-> - **方式一 USB**(默认 `192.168.15.244`):Kindle 插电脑。⚠️ 前提两关——① Kindle 上**先开 USBNetwork**(KUAL;**它一重启就关、默认是 U 盘存储模式**,Windows 会把它认成磁盘而非网卡)② Windows 把 Kindle 认成『网络适配器/RNDIS』(认成未知设备就到设备管理器装『远程 NDIS 兼容设备』驱动)。这两关是越狱 Kindle 插 Windows 的固有门槛。
-> - **方式二 WiFi(推荐,免装驱动)**:Kindle 连 WiFi → 路由器后台查到它的 IP → 填进刷机框(或 `-KindleIp <IP>`)。脚本检测到非 `.244` 就**跳过 USB 配置、直接走 WiFi SSH**,Win/Mac/Linux 完全一样,不碰 RNDIS 驱动。**仍需 Kindle 开着 SSH(USBNetwork 的 dropbear 在 WiFi 上也听)。**
-> - ⚠️ 真机验证状态:`.ps1` 编码/网卡还原已验;完整刷机流程因 USBNetwork 模式问题待续验。
+> **Two ways to connect (the settings-page "Service" card's flashing box has a Kindle-IP field; fill it and the full command is assembled for you)**:
+> - **Option 1: USB** (default `192.168.15.244`): plug the Kindle into the PC. ⚠️ Two prerequisites — ① **enable USBNetwork on the Kindle first** (KUAL; **it turns off on every reboot and defaults to USB mass-storage mode**, so Windows sees it as a disk, not a NIC) ② Windows recognizes the Kindle as a "network adapter / RNDIS" (if it shows as an unknown device, install the "Remote NDIS Compatible Device" driver in Device Manager). These two are inherent hurdles for plugging a jailbroken Kindle into Windows.
+> - **Option 2: WiFi (recommended, no driver install)**: connect the Kindle to WiFi → find its IP in the router admin → enter it in the flashing box (or `-KindleIp <IP>`). When the script detects a non-`.244` address it **skips USB config and goes straight to WiFi SSH**, identical on Win/Mac/Linux, no RNDIS driver involved. **The Kindle still needs SSH on (USBNetwork's dropbear also listens over WiFi).**
+> - ⚠️ Real-device verification status: `.ps1` encoding/adapter-restore verified; the full flashing flow is pending further verification due to USBNetwork mode issues.
 
-`install.sh` 会推送 `start.sh`/`stop.sh`、写服务地址到 `/mnt/us/dashboard.conf`、加 `@reboot` 自启(带 `# kindle-dashboard` 标记便于卸载精确移除)、启动显示。
+`install.sh` pushes `start.sh`/`stop.sh`, writes the server address to `/mnt/us/dashboard.conf`, adds an `@reboot` autostart (tagged `# kindle-dashboard` for precise removal on uninstall), and starts the display.
 
-**刷新间隔**:`install.sh` 运行时会问「Kindle 多久拉一次新图(秒)」,常用 10/20/30/60、回车默认 20,写进 `dashboard.conf` 的 `INTERVAL`(也可作第三参数传入,如 `... [SERVER_URL] 30`;非交互默认 20,<5s 自动回退 20)。注意区分两个间隔:
-- **`INTERVAL`(Kindle 拉图间隔)**:刷机时定,Kindle 端多久拉一张新图。改它要重跑 `install.sh`,网页改不了。
-- **`page_interval`(服务端轮播间隔)**:看板多少秒翻一页,设置网页里随时可配。
+**Refresh interval**: `install.sh` asks at runtime "how often should the Kindle fetch a new image (seconds)" — common values 10/20/30/60, Enter defaults to 20, written as `INTERVAL` in `dashboard.conf` (can also be passed as the third argument, e.g. `... [SERVER_URL] 30`; non-interactive defaults to 20, <5s auto-falls back to 20). Note the two distinct intervals:
+- **`INTERVAL` (Kindle fetch interval)**: set at flash time, how often the Kindle fetches a new image. Changing it requires re-running `install.sh`; the web page can't change it.
+- **`page_interval` (server-side rotation interval)**: how many seconds the dashboard waits between flipping pages, configurable anytime in the settings page.
 
-**服务器 IP 别变(关键)**:Kindle 按固定地址拉图,**看板服务所在那台机器的 IP 一旦变,Kindle 就拉不到图、看板停更**。按服务在哪台机器分两种处理:
+**Keep the server IP stable (critical)**: the Kindle fetches from a fixed address — **once the IP of the machine hosting the dashboard changes, the Kindle can't fetch and the dashboard stops updating**. Two cases by where the service runs:
 
-- **服务在 NAS / 常开主机**(NAS 部署):NAS 一般走有线、MAC 不变,**去路由器给它的 MAC 绑定一个固定 IP(DHCP 保留地址),或在 NAS 上设静态 IP**。绑一次就稳,最省心。
-- **服务在 Mac**:Mac 的 IP 老变,**主因是 Apple『私有 Wi-Fi 地址』(MAC 随机化)**——默认「轮替」,Mac 每隔一阵换个随机 MAC,路由器按 MAC 记租约,MAC 一变 IP 跟着变。**根治:系统设置 → Wi-Fi → 当前网络「详细信息…」→「私有 Wi-Fi 地址」从「轮替」改成「固定」**(想更稳再去路由器绑 IP,或在 TCP/IP 里设手动 IP)。
-  - ❌ 别只靠路由器绑 MAC:只要「私有 Wi-Fi 地址」还是「轮替」,MAC 一直变,绑了也没用——必须先改「固定」。
-- **IP 真的变了**:重跑 `install.sh`(或设置页那条 Kindle 刷机命令),`SERVER_URL` 换成新地址即可。
-- 注:旧版那个 `.local`(mDNS)备用地址已移除——它只对"服务跑在本机"成立(服务在 NAS 时算的是本机名,是错的),且主流越狱 Kindle(busybox)根本解析不了 `.local`。
+- **Service on NAS / always-on host** (NAS deploy): a NAS is usually wired and its MAC doesn't change, so **bind a fixed IP to its MAC in the router (DHCP reservation), or set a static IP on the NAS**. Bind once and it's stable — least hassle.
+- **Service on a Mac**: a Mac's IP changes often, **mainly because of Apple's "Private Wi-Fi Address" (MAC randomization)** — defaulting to "Rotating", the Mac periodically swaps to a random MAC; the router tracks leases by MAC, so when the MAC changes the IP follows. **Fix: System Settings → Wi-Fi → current network "Details…" → "Private Wi-Fi Address" from "Rotating" to "Fixed"** (for extra stability also bind the IP in the router, or set a manual IP in TCP/IP).
+  - ❌ Don't rely on router MAC binding alone: as long as "Private Wi-Fi Address" is still "Rotating", the MAC keeps changing and the binding is useless — you must switch to "Fixed" first.
+- **The IP really changed**: re-run `install.sh` (or the Kindle flash command from the settings page) with `SERVER_URL` set to the new address.
+- Note: the old `.local` (mDNS) fallback address has been removed — it only held when "the service runs on this machine" (when the service is on a NAS it computes the local hostname, which is wrong), and mainstream jailbroken Kindles (busybox) can't resolve `.local` at all.
 
-**屏幕分辨率(机型)**:设置网页「服务」里有 **Kindle 机型** 下拉,选你的型号(基础版 6″/Paperwhite 3-4/PW5/PW12·Oasis/Scribe),服务端就按该机型原生分辨率出清晰图——高 PPI 机型不再被放大糊字。
-- 原理:风格只按基准画布 **横屏 800×600** 设计,渲染时用 Chrome `--force-device-scale-factor` 把同一份布局**矢量放大**到目标分辨率(字体/线条放大依旧锐利,CSS 零改动)。详见 `docs/multi-resolution-spec.md`。
-- 6″ 基础版选第一个即可(=现状,行为不变)。不确定型号:机器背面或「设置→设备信息」。
-- 列表没有你的机型 → 选「自定义」,手填**横屏分辨率**(= 竖屏宽高对调,如竖屏 1236×1648 的 PW5 填宽 1648、高 1236)。
-- 极少数非 4:3 机型:等比缩放 + 白底居中(letterbox),不裁切不变形;要像素级铺满需风格层单独出变体(P2)。
-- Kindle 端 `fbink` 按图实际尺寸贴屏,服务端出原生分辨率即严丝合缝,**无需改 Kindle 端**。
+**Screen resolution (model)**: the settings page "Service" has a **Kindle model** dropdown — pick your model (basic 6″ / Paperwhite 3-4 / PW5 / PW12·Oasis / Scribe) and the server renders a crisp image at that model's native resolution — high-PPI models are no longer upscaled and blurry.
+- How it works: styles are designed only against the base canvas **landscape 800×600**; at render time Chrome's `--force-device-scale-factor` **vector-scales** the same layout to the target resolution (fonts/lines stay sharp when enlarged, zero CSS changes). See `docs/multi-resolution-spec.md`.
+- For the 6″ basic, just pick the first option (= current behavior, unchanged). Unsure of the model: check the back of the device or "Settings → Device Info".
+- Your model not in the list → pick "Custom" and manually enter the **landscape resolution** (= portrait width/height swapped, e.g. for a PW5 whose portrait is 1236×1648, enter width 1648, height 1236).
+- A few non-4:3 models: scaled proportionally + white-background centered (letterbox), no cropping or distortion; pixel-perfect fill requires a per-style variant (P2).
+- The Kindle's `fbink` blits the image to the screen at its actual size, so a server-side native-resolution image fits exactly — **no Kindle-side changes needed**.
 
-## 四、故障排查
+## 4. Troubleshooting
 
-| 现象 | 排查 |
+| Symptom | Check |
 |---|---|
-| 渲染失败/白屏 | 确认装了 Chrome/Chromium;或设 `CHROME_BIN` 指向可执行文件 |
-| 中文显示成方块 | 装中文字体(Linux:`fonts-noto-cjk`;Mac 自带苹方,一般无需) |
-| 连不上 Kindle | 跑 `detect.sh`;确认越狱+USBNetwork+数据线;默认 IP `192.168.15.244`。Windows 上把 Kindle 认成磁盘=USBNetwork 没开(在 Kindle 上开)或缺 RNDIS 驱动;也可改走 WiFi(填 Kindle 的 WiFi IP) |
-| **看板占屏又连不上 Kindle(像变砖)** | 🛟 逃生舱:把 Kindle 插任意电脑(默认 U 盘模式,**不需要 USBNetwork/WiFi**),在盘根目录新建空文件 `dashboard.off`,重启 Kindle 即回正常界面;删掉该文件恢复看板。`start.sh` 开机先查这个文件 |
-| Kindle 不刷屏 | 缺 `fbink`,通过 KUAL/越狱工具安装 |
-| Kindle 时间冻结(Docker) | compose 加 `init: true`(已内建);本机直跑无此问题 |
-| 设备页空 | 确认机器已配置且采集成功;push 设备需 agent 已上报 |
+| Render fails / blank screen | Confirm Chrome/Chromium is installed; or set `CHROME_BIN` to the executable |
+| Chinese shows as boxes | Install CJK fonts (Linux: `fonts-noto-cjk`; Mac ships PingFang, usually fine; Windows ships Microsoft YaHei) |
+| Can't connect to the Kindle | Run `detect.sh`; confirm jailbreak + USBNetwork + data cable; default IP `192.168.15.244`. On Windows, the Kindle showing as a disk = USBNetwork not on (turn it on, on the Kindle) or missing RNDIS driver; or switch to WiFi (enter the Kindle's WiFi IP) |
+| **Dashboard occupies the screen and you can't connect to the Kindle (looks bricked)** | 🛟 Escape hatch: plug the Kindle into any computer (default USB mass-storage mode, **no USBNetwork/WiFi needed**), create an empty file `dashboard.off` at the drive root, reboot the Kindle to return to normal; delete that file to restore the dashboard. `start.sh` checks this file first at boot |
+| Kindle doesn't refresh the screen | Missing `fbink`; install via KUAL/jailbreak tools |
+| Kindle clock frozen (Docker) | Add `init: true` to compose (already built in); no such issue running natively |
+| Devices page empty | Confirm the machine is configured and collection succeeded; push devices need the agent to have reported |
 
-## 五、验证状态(诚实清单)
+## 5. Verification status (honest checklist)
 
-**已自动化测试(42 项,`python3 -m pytest tests/ -q`)**:
-- 配置 schema/加载/校验/脱敏保存、数据契约、数据整合
-- 渲染管线真实出图(降级 + 真实数据)、风格调度
-- Linux 本机采集端到端、主服务全部 API、设置页与实时预览(真机 chrome 截图验证)
+**Automated tests (42 items, `python3 -m pytest tests/ -q`)**:
+- config schema/loading/validation/redacted-save, data contract, data integration
+- render pipeline real output (degraded + real data), style scheduling
+- Linux local collection end-to-end, all main-service APIs, settings page + live preview (verified with real Chrome screenshots)
 
-**待真机验证**:
-- macOS / Windows 采集脚本(`collect_macos.sh` / `collect_windows.ps1`)
-- SSH 拉模式(尤其密码登录需 `sshpass`;Windows 目标 SSH)
-- Mac launchd 安装(`installers/macos/`)
-- Kindle 识别/安装/卸载全流程(`installers/kindle/`,需真机 Kindle)
+**Pending real-device verification**:
+- macOS / Windows collection scripts (`collect_macos.sh` / `collect_windows.ps1`)
+- SSH pull mode (esp. password login needing `sshpass`; Windows target SSH)
+- Mac launchd install (`installers/macos/`)
+- Full Kindle detect/install/uninstall flow (`installers/kindle/`, needs a real Kindle)

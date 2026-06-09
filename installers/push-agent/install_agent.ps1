@@ -1,12 +1,12 @@
-# Kindle Dashboard 推送 agent —— 一键安装(在【被监控的 Windows 机】上运行)。
-# 由看板服务在 /agent/install.ps1 提供;在设置页复制带地址的整行命令到 Windows 上运行即可。
+# Kindle Dashboard push agent — one-command install (run on the [monitored Windows machine]).
+# Served by the dashboard at /agent/install.ps1; copy the full command with the address from the settings page and run it on Windows.
 #
-# 用法(设置页会给出完整命令):
-#   $u='http://<看板IP>:<端口>'; iwr "$u/agent/install.ps1" -UseBasicParsing -OutFile "$env:TEMP\kda.ps1"; `
+# Usage (the settings page gives the full command):
+#   $u='http://<dashboard-IP>:<port>'; iwr "$u/agent/install.ps1" -UseBasicParsing -OutFile "$env:TEMP\kda.ps1"; `
 #     powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\kda.ps1" $u 30
-#   卸载:... -File "$env:TEMP\kda.ps1" uninstall
+#   Uninstall: ... -File "$env:TEMP\kda.ps1" uninstall
 #
-# 装好后:每「间隔」秒采集本机指标推给看板;用『计划任务』设登录自启;本机会自动出现在看板设置页「设备监控」。
+# Once installed: collects local metrics every <interval> seconds and pushes to the dashboard; a scheduled task auto-starts it at login; the machine appears automatically under the settings page "Device monitoring".
 param(
     [string]$Url,
     [int]$Interval = 30,
@@ -25,42 +25,42 @@ function Stop-AgentProcs {
 }
 
 function Uninstall-Agent {
-    Write-Host "==> 卸载推送 agent..."
+    Write-Host "==> Uninstalling push agent..."
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
     Stop-AgentProcs
     if (Test-Path $AgentDir) { Remove-Item $AgentDir -Recurse -Force -ErrorAction SilentlyContinue }
-    Write-Host "OK 已卸载:停止上报、清登录自启(计划任务)、删除 $AgentDir。"
+    Write-Host "OK Uninstalled: stopped reporting, removed login autostart (scheduled task), deleted $AgentDir."
 }
 
 if ($Url -eq "uninstall") { Uninstall-Agent; return }
 if (-not $Url -or ($Url -notmatch '^https?://')) {
-    Write-Host "X 用法: ... -File install.ps1 <看板地址 http://IP:端口> [间隔秒] [标识]"; return
+    Write-Host "X Usage: ... -File install.ps1 <dashboard address http://IP:port> [interval-seconds] [id]"; return
 }
 if ($Interval -lt 5) { $Interval = 30 }
 $Url = $Url.TrimEnd('/')
 
-Write-Host "==> 安装到 $AgentDir(间隔 ${Interval}s,标识 $Id)..."
+Write-Host "==> Installing to $AgentDir (interval ${Interval}s, id $Id)..."
 Stop-AgentProcs
 New-Item -ItemType Directory -Force -Path $AgentDir | Out-Null
 Invoke-WebRequest "$Url/agent/push_agent.ps1"     -UseBasicParsing -OutFile $AgentPath
 Invoke-WebRequest "$Url/agent/collect_windows.ps1" -UseBasicParsing -OutFile (Join-Path $AgentDir "collect_windows.ps1")
 @{ url = $Url; id = $Id; interval = $Interval } | ConvertTo-Json | Set-Content (Join-Path $AgentDir "agent.json") -Encoding UTF8
 
-# 计划任务:登录时启动 agent(隐藏窗口、绕过执行策略)
+# Scheduled task: start the agent at login (hidden window, bypass execution policy)
 $run = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$AgentPath`""
 $action  = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $run
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 try {
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-    Write-Host "OK 已设登录自启(计划任务 $TaskName)。"
+    Write-Host "OK Login autostart set (scheduled task $TaskName)."
 } catch {
-    Write-Host "! 计划任务注册失败($($_.Exception.Message));agent 仍会被立即启动,但开机自启没设上。"
+    Write-Host "! Scheduled-task registration failed ($($_.Exception.Message)); the agent still starts now, but autostart-at-login wasn't set."
 }
 
-# 立即启动一份(隐藏窗口)
+# Start one instance right now (hidden window)
 Start-Process powershell -WindowStyle Hidden -ArgumentList $run
 
-Write-Host "OK 推送 agent 已启动,每 ${Interval} 秒上报一次。"
-Write-Host "   回看板设置页「设备监控」-> 本机(标识 $Id)会自动出现,可改名、选指标。"
-Write-Host "   卸载:把那行命令末尾换成 uninstall 再跑一次。"
+Write-Host "OK Push agent started, reporting every ${Interval} seconds."
+Write-Host "   Back in the dashboard settings page 'Device monitoring' -> this machine (id $Id) appears automatically; you can rename it and pick metrics."
+Write-Host "   Uninstall: replace the end of that command with uninstall and run it again."
