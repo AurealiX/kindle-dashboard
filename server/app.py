@@ -625,15 +625,24 @@ def agent_file(name: str):
 def api_city_search(q: str = ""):
     """城市搜索:用已保存的天气 host/key 调 GeoAPI,返回候选城市供设置网页选择。
     key 只在服务端使用,不回传前端。"""
-    w = cm.get().get("weather", {})
+    cfg = cm.get()
+    w = cfg.get("weather", {})
+    if not (q or "").strip():
+        return {"ok": True, "results": []}
+    if (w.get("provider") or "qweather") == "open_meteo":
+        # Open-Meteo geocoding 免 Key,直接搜
+        lang = "en" if (cfg.get("server", {}) or {}).get("language") == "en" else "zh"
+        try:
+            results = weather.search_city_open_meteo(q, lang)
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": f"搜索失败:{e}"}, status_code=502)
+        return {"ok": True, "results": results}
     host = (w.get("host") or "").strip()
     key = (w.get("key") or "").strip()
     if not (host and key):
         return JSONResponse(
             {"ok": False, "error": "请先填写并【保存】天气的 API Host 和 Key,再搜索城市。"},
             status_code=400)
-    if not (q or "").strip():
-        return {"ok": True, "results": []}
     try:
         results = weather.search_city(host, key, q)
     except Exception as e:

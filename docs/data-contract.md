@@ -74,6 +74,7 @@
 | `chart` | list | `[{day:"27", cc_h:60, cx_h:30, val:"1.2M"}]` | last-7-day bar chart; `cc_h`/`cx_h` are 0-100 height% |
 | `custom_total` | str | `¥12.34` | today's official price × multiplier (`ai_usage.claude_rate`/`codex_rate`, one each). Empty (hidden) when both = 1.0 |
 | `custom_name` | str | | provider name, currently always empty → templates fall back to "Custom" |
+| `codex_on` | bool | `true` | from `ai_usage.codex_enabled`; `false` = templates hide the Codex quota block/legend (Claude-only) |
 
 ## `device` — Device monitoring
 

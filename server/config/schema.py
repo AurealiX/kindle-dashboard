@@ -129,18 +129,34 @@ SCHEMA: list = [
 
     Section(
         key="weather", label="天气", page="home",
-        help="和风天气 QWeather 免费 API。填了 Key 才显示天气。",
-        enable_when=["key", "location"],
+        help="Open-Meteo 免 Key 免注册(全球);或和风天气 QWeather(需 Key)。选好服务商后搜城市即可。",
+        help_en="Open-Meteo: no key, no signup (global). Or QWeather (needs a key). "
+                "Pick a provider, then search your city.",
+        enable_when=["key", "location"],   # 仅 qweather 用;open_meteo 见 enabled_modules 特例
         fields=[
             Field("provider", "服务商", "enum", "qweather",
-                  options=[("qweather", "和风天气 QWeather")]),
+                  options=[("qweather", "和风天气 QWeather"),
+                           ("open_meteo", "Open-Meteo(免Key / No key)")],
+                  label_en="Provider"),
             Field("host", "API Host", "str", "",
-                  help="QWeather 控制台分配的专属域名,如 xxx.re.qweatherapi.com。"),
-            Field("key", "API Key", "str", "", required=True, secret=True),
+                  help="仅 QWeather:控制台分配的专属域名,如 xxx.re.qweatherapi.com。Open-Meteo 不需要。",
+                  help_en="QWeather only: the per-account host like xxx.re.qweatherapi.com. "
+                          "Not needed for Open-Meteo."),
+            Field("key", "API Key", "str", "", secret=True,
+                  help="仅 QWeather 需要;Open-Meteo 免 Key。",
+                  help_en="QWeather only; Open-Meteo needs no key."),
             Field("location", "城市", "city", "101010100", required=True,
-                  help="搜城市名选择即可(自动匹配编码);也可在「高级」手填 LocationID。"),
+                  help="搜城市名选择即可(QWeather 存 LocationID;Open-Meteo 存 经纬度)。",
+                  label_en="City",
+                  help_en="Search a city name and pick it (QWeather stores a LocationID; "
+                          "Open-Meteo stores lat,lon)."),
             Field("location_name", "城市名", "str", "", hidden=True,
-                  help="城市显示名,由城市选择器写入(GeoAPI 反查),用于看板天气标题。"),
+                  help="城市显示名,由城市选择器写入,用于看板天气标题。"),
+            Field("units", "单位", "enum", "metric",
+                  options=[("metric", "公制 °C / km/h"), ("imperial", "英制 °F / mph")],
+                  label_en="Units",
+                  help="仅 Open-Meteo:温度/风速单位。QWeather 恒为公制。",
+                  help_en="Open-Meteo only: temperature/wind units. QWeather is always metric."),
             Field("interval", "采集间隔(秒)", "int", 600,
                   help="多久拉一次天气。变化慢,建议 ≥600(也省 API 限额)。"),
         ],
@@ -184,6 +200,11 @@ SCHEMA: list = [
         enable_when=["enabled"],
         fields=[
             Field("enabled", "启用", "bool", False),
+            Field("codex_enabled", "显示 Codex", "bool", True,
+                  help="关闭后 AI 页隐藏 Codex 额度块与图例,只显示 Claude(也不再跑 ccusage codex 采集)。",
+                  label_en="Show Codex",
+                  help_en="When off, the AI page hides the Codex quota block and legend (Claude only) "
+                          "and skips ccusage codex collection."),
             Field("claude_rate", "Claude 价格倍率", "float", 1.0,
                   help="Claude 官方价 × 此倍率 = 自定义花费(中转站对账用)。默认 1.0=按官方价。"),
             Field("codex_rate", "Codex 价格倍率", "float", 1.0,
@@ -341,6 +362,11 @@ def enabled_modules(config: dict) -> dict:
             continue
         if sec.key == "ha_page":            # 同 devices:列表非空即启用(选了实体才出 ha 页)
             out[sec.key] = len(secd.get("entities", []) or []) > 0
+            continue
+        if sec.key == "weather" and (secd.get("provider") or "qweather") == "open_meteo":
+            # open_meteo 免 Key:location 选过城市(形如 "lat,lon")即启用。
+            # 必须含逗号——防止换 provider 后残留 QWeather LocationID 被误判为已配置。
+            out[sec.key] = "," in str(secd.get("location") or "")
             continue
         if not sec.enable_when:
             out[sec.key] = True     # 无启用条件的模块(server/display)恒启用

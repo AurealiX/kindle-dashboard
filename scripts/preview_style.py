@@ -89,7 +89,8 @@ def main():
             continue
         try:
             png = pipeline.render_html_to_png(styles.render_page(style, page, ctx), rc)
-            out = f"/tmp/preview_{style}_{page}.png"
+            import tempfile
+            out = os.path.join(tempfile.gettempdir(), f"preview_{style}_{page}.png")
             with open(out, "wb") as f:
                 f.write(png)
             sz = Image.open(io.BytesIO(png)).size

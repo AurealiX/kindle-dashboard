@@ -89,6 +89,11 @@ def test_to_json_serializable():
     json.dumps(schema.to_json())  # 不抛异常即可给前端
 
 
+def test_codex_enabled_defaults_true():
+    """codex_enabled 默认 True —— 上游用户行为零变化;关掉才隐藏 Codex。"""
+    assert schema.default_config()["ai_usage"]["codex_enabled"] is True
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

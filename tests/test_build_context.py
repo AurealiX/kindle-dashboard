@@ -150,6 +150,17 @@ def test_device_rename_and_field_filter():
     assert nas["vols"] == []                                 # 未勾选任何分区
 
 
+def test_codex_flag():
+    """ai.codex_on 由 ai_usage.codex_enabled 驱动(配置说了算,与 cache 有无 codex 数据无关)。
+    mock cache 里【有】codex 数据,关掉后 codex_on 仍为 False —— 证明 flag 是配置驱动。"""
+    ai = bc.prep_context(NOW, _mock_cache(), {"ai_usage": {"codex_enabled": False}})["ai"]
+    assert ai["codex_on"] is False
+    assert ai["cx_five_pct"] == 15        # 数据照常产出(模板侧负责隐藏)
+    # 默认 / 未配置 → True
+    assert bc.prep_context(NOW, _mock_cache())["ai"]["codex_on"] is True
+    assert bc.prep_context(NOW, _mock_cache(), {"ai_usage": {}})["ai"]["codex_on"] is True
+
+
 def test_calendar_solar_terms_are_calculated_after_2026():
     """节气按年份计算;2028 小寒会从 2026 的 1/5 漂移到 1/6。"""
     cal = bc.build_calendar(date(2028, 1, 1))

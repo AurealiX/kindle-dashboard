@@ -344,7 +344,9 @@ def prep_context(now, cache, cfg=None):
             "cc_h": round(ccv/mx*100), "cx_h": round(cxv/mx*100),
             "val": fmt_tok(ccv+cxv) if (ccv+cxv)>0 else "",
         })
+    ai_cfg = (cfg or {}).get("ai_usage", {}) or {}
     ai = {
+        "codex_on": ai_cfg.get("codex_enabled", True) is not False,
         "five_pct": int(five.get("used_percentage") or 0),
         "five_reset": fmt_countdown(five["resets_at"], lang) if five.get("resets_at") else "--",
         "week_pct": int(week.get("used_percentage") or 0),
@@ -363,7 +365,6 @@ def prep_context(now, cache, cfg=None):
     }
     # 自定义价:今日官方价 × 倍率(Claude/Codex 各一档,中转站对账用)。
     # 两档都=1.0 视为未配置,不显示自定义价(诚实降级,避免与官方价重复)。
-    ai_cfg = (cfg or {}).get("ai_usage", {}) or {}
     def _rate(key):
         try:
             return float(ai_cfg.get(key, 1.0))

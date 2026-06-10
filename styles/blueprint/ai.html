@@ -26,9 +26,11 @@
       <div class="fig"><span class="tag">A.1</span><span class="cap">{{ t.ai_claude_quota }}</span><span class="ln"></span></div>
       <div class="barrow"><div class="kv"><span class="k">5H</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.five_pct }}%"></i></div></div>
       <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.week_pct }}%"></i></div></div>
+      {% if ai.codex_on %}
       <div class="fig mt"><span class="tag">A.2</span><span class="cap">{{ t.ai_codex_quota }}</span><span class="ln"></span></div>
       <div class="barrow"><div class="kv"><span class="k">5H</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.cx_five_pct }}%"></i></div></div>
       <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+      {% endif %}
       <div class="cost">
         <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
         <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-lg tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
@@ -36,18 +38,18 @@
     </div>
     <div class="vrule"></div>
     <div class="col col-r">
-      <div class="fig"><span class="tag">A.3</span><span class="cap">{{ t.ai_tokens }}</span><span class="ln"></span></div>
+      <div class="fig"><span class="tag">{% if ai.codex_on %}A.3{% else %}A.2{% endif %}</span><span class="cap">{{ t.ai_tokens }}</span><span class="ln"></span></div>
       <div class="tok">
         <div class="c"><div class="l">7D</div><div class="v tnum">{{ ai.tok_7d }}</div></div>
         <div class="c"><div class="l">30D</div><div class="v tnum">{{ ai.tok_30d }}</div></div>
         <div class="c"><div class="l">ALL</div><div class="v tnum">{{ ai.tok_all }}</div></div>
       </div>
-      <div class="fig mt"><span class="tag">A.4</span><span class="cap">{{ t.ai_trend_7d }}</span><span class="ln"></span><span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+      <div class="fig mt"><span class="tag">{% if ai.codex_on %}A.4{% else %}A.3{% endif %}</span><span class="cap">{{ t.ai_trend_7d }}</span><span class="ln"></span><span class="aux">cc {{ ai.cc_cost }}{% if ai.codex_on %} · cx {{ ai.cx_cost }}{% endif %}</span></div>
       <div class="chart-wrap">
         <div class="chart">
         {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
         </div>
-        <div class="legend"><span><i class="hatch-a"></i>CLAUDE</span><span><i class="hatch-b"></i>CODEX</span></div>
+        <div class="legend"><span><i class="hatch-a"></i>CLAUDE</span>{% if ai.codex_on %}<span><i class="hatch-b"></i>CODEX</span>{% endif %}</div>
       </div>
     </div>
   </div>

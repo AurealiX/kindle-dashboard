@@ -54,6 +54,50 @@ def test_local_collect_shape():
             assert "date" in row and "totalTokens" in row
 
 
+def test_codex_disabled_skips_codex_run():
+    """codex_enabled=False → 不调 ccusage codex(省每轮 ~10s 日志解析)。"""
+    import tempfile
+    orig_p, orig_bin, orig_daily = ccusage_cli._PERSIST, ccusage_cli._bin, ccusage_cli._daily
+    ccusage_cli._PERSIST = os.path.join(tempfile.mkdtemp(), "cc.json")
+    calls = []
+
+    def fake_daily(binp, agent, tz):
+        calls.append(agent)
+        return [{"date": "2026-06-07", "totalTokens": 1, "totalCost": 0.1}]
+
+    try:
+        ccusage_cli._bin = lambda: "/x/ccusage"
+        ccusage_cli._daily = fake_daily
+        frag = ccusage_cli.collect({"ai_usage": {"enabled": True, "codex_enabled": False}})
+        assert calls == ["claude"]                      # codex 没被调
+        assert frag["ccusage"]["codex"]["daily"] == []  # codex 留空
+        calls.clear()
+        ccusage_cli.collect({"ai_usage": {"enabled": True}})   # 默认仍跑两个
+        assert calls == ["claude", "codex"]
+    finally:
+        ccusage_cli._PERSIST, ccusage_cli._bin, ccusage_cli._daily = orig_p, orig_bin, orig_daily
+
+
+def test_codex_off_templates_hide_codex_all_styles():
+    """全部 7 套风格的 ai 页:codex_on 两个分支都能渲染(纯 Jinja,无需 Chrome);
+    codex_on=False 时页面不再出现 Codex 字样。"""
+    from server.render import styles, contract
+    import glob as _glob
+    style_dirs = [os.path.basename(p) for p in _glob.glob(os.path.join(ROOT, "styles", "*"))
+                  if os.path.isdir(p)]
+    assert len(style_dirs) >= 7
+    for s in style_dirs:
+        for flag in (True, False):
+            ctx = contract.empty_context()
+            ctx["ai"]["codex_on"] = flag
+            html = styles.render_page(s, "ai", ctx)
+            has_codex = ("Codex" in html) or ("CODEX" in html)
+            if flag:
+                assert has_codex, f"{s}: codex_on=True 应显示 Codex"
+            else:
+                assert not has_codex, f"{s}: codex_on=False 仍出现 Codex 字样"
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

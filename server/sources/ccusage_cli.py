@@ -44,6 +44,8 @@ def _bin():
         shutil.which("ccusage"),
         os.path.expanduser("~/.npm-global/bin/ccusage"),
         "/usr/local/bin/ccusage", "/opt/homebrew/bin/ccusage",
+        # Windows:npm install -g 落在 %APPDATA%\npm(服务由计划任务启动时 PATH 可能还没刷新)
+        os.path.join(os.environ.get("APPDATA", ""), "npm", "ccusage.cmd"),
     ]
     for c in cands:
         if c and os.path.exists(c):
@@ -52,9 +54,13 @@ def _bin():
 
 
 def _env():
-    """确保 node 在 PATH(ccusage 是 node 脚本;launchd 环境 PATH 受限,本地 node 要补进去)。"""
+    """确保 node 在 PATH(ccusage 是 node 脚本;launchd/计划任务环境 PATH 受限,本地 node 要补进去)。"""
     env = dict(os.environ)
     extra = [os.path.join(REPO, ".node", "bin"), "/usr/local/bin", "/opt/homebrew/bin"]
+    if os.name == "nt":
+        # Node MSI 装到 Program Files\nodejs;npm 全局目录也补上(ccusage.cmd 内部要调 node)
+        extra += [os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "nodejs"),
+                  os.path.join(os.environ.get("APPDATA", ""), "npm")]
     env["PATH"] = os.pathsep.join(extra) + os.pathsep + env.get("PATH", "")
     return env
 
@@ -88,7 +94,8 @@ def collect(cfg: dict):
         return _load()      # ccusage 没找到(可能 launchd PATH 抖动)→ 回放上次,不空窗
     tz = ((cfg or {}).get("server", {}) or {}).get("timezone") or "Asia/Shanghai"
     cc = _daily(binp, "claude", tz)
-    cx = _daily(binp, "codex", tz)
+    # codex_enabled=False(只看 Claude)时跳过 codex 解析(每次约 10s,白费)
+    cx = _daily(binp, "codex", tz) if a.get("codex_enabled", True) is not False else []
     if not cc and not cx:
         return _load()      # 这轮没采到 → 回放上次结果
     frag = {"ccusage": {"ok": True, "cc": {"daily": cc}, "codex": {"daily": cx}}}

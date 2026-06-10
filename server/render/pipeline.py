@@ -127,20 +127,37 @@ _RENDER_MUTEX = threading.Lock()
 
 
 def _pkill(pattern: str) -> None:
-    """按命令行标记杀进程(只动带该标记的渲染 Chrome,绝不碰本服务/他人进程或用户自己的浏览器)。"""
+    """按命令行标记杀进程(只动带该标记的渲染 Chrome,绝不碰本服务/他人进程或用户自己的浏览器)。
+    Windows 没有 pkill → 用 CIM 按 CommandLine 子串匹配(模式取 kdash-render 标记,绕开反斜杠转义)。"""
     try:
-        subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True, timeout=5)
+        if os.name == "nt":
+            pat = pattern.replace("'", "''").replace("\\", "*")   # 路径分隔符当通配,免转义坑
+            ps = ("Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | "
+                  f"Where-Object {{ $_.CommandLine -like '*{pat}*' }} | "
+                  "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }")
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                           capture_output=True, timeout=15)
+        else:
+            subprocess.run(["pkill", "-9", "-f", pattern], capture_output=True, timeout=5)
     except Exception:
         pass
 
 
 def _kill_group(proc) -> None:
-    """整组杀掉一次渲染(Popen 用 start_new_session,主进程+全部 Chrome 子进程同属一个进程组)。
+    """整组杀掉一次渲染(POSIX:Popen 用 start_new_session,进程组一刀;
+    Windows:taskkill /T 杀整棵进程树——proc.kill() 只杀 launcher,会留孤儿渲染子进程)。
     超时时一刀清干净,既释放渲染锁,又不留继承管道的子进程把后续渲染拖死。"""
     try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           capture_output=True, timeout=10)
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
     except Exception:
-        pass
+        try:
+            proc.kill()             # 兜底:至少把直接子进程干掉
+        except Exception:
+            pass
     try:
         proc.wait(timeout=5)        # 回收僵尸,别留 defunct
     except Exception:
@@ -212,7 +229,9 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
                     time.sleep(0.1)
             finally:
                 _kill_group(proc)       # 无论截到没截到都整组清干净(含拖后腿的 updater 子进程)
-                _pkill(td)              # 兜底:按 td 标记再扫一遍
+                if os.name != "nt":
+                    _pkill(td)          # 兜底:按 td 标记再扫一遍(Windows 上 taskkill /T 已清树,
+                                        # 且每次渲染再起一个 CIM 扫描要 1-2s,纯浪费)
         if not os.path.exists(png_path) or os.path.getsize(png_path) == 0:
             raise FileNotFoundError("Chromium 未产出截图(已清理本次进程,下轮自动恢复)")
         mode = "L" if rc.grayscale else "RGB"

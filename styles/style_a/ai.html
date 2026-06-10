@@ -8,6 +8,12 @@
 .quota .qright{text-align:right;}
 .quota .qpct{font-size:22px;font-weight:800;}
 .quota .qreset{font-size:11px;color:var(--ink3);font-weight:600;margin-left:8px;}
+/* Claude-only(codex_on=false):配额加大铺满左栏,补一块今日 tokens */
+.quota.xl{margin-bottom:20px;}
+.quota.xl .qpct{font-size:36px;letter-spacing:-1px;}
+.quota.xl .qname{font-size:16px;}
+.quota.xl .bar{height:18px;}
+.today-blk .v{font-size:42px;font-weight:800;letter-spacing:-1.5px;line-height:1;}
 .tok3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
 .tok3 .c{padding:12px 14px;}
 .tok3 .c .label-sm{margin-bottom:5px;}
@@ -28,16 +34,23 @@
   <div class="col col-l">
     <div>
       <div class="section-label">{{ t.ai_claude_quota }}</div>
-      <div class="quota"><div class="top"><span class="qname">{{ t.ai_five_hour }}</span><span class="qright"><span class="qpct tnum">{{ ai.five_pct }}%</span><span class="qreset">{{ ai.five_reset }}</span></span></div>
+      <div class="quota{% if not ai.codex_on %} xl{% endif %}"><div class="top"><span class="qname">{{ t.ai_five_hour }}</span><span class="qright"><span class="qpct tnum">{{ ai.five_pct }}%</span><span class="qreset">{{ ai.five_reset }}</span></span></div>
         <div class="bar"><i style="width:{{ ai.five_pct }}%"></i></div></div>
-      <div class="quota"><div class="top"><span class="qname">{{ t.ai_week }}</span><span class="qright"><span class="qpct tnum">{{ ai.week_pct }}%</span><span class="qreset">{{ ai.week_reset }}</span></span></div>
+      <div class="quota{% if not ai.codex_on %} xl{% endif %}"><div class="top"><span class="qname">{{ t.ai_week }}</span><span class="qright"><span class="qpct tnum">{{ ai.week_pct }}%</span><span class="qreset">{{ ai.week_reset }}</span></span></div>
         <div class="bar"><i style="width:{{ ai.week_pct }}%"></i></div></div>
+      {% if not ai.codex_on %}
+      <div class="rule"></div>
+      <div class="section-label">{{ t.ai_today_tokens }}<span class="aux tnum">{{ ai.cc_cost }}</span></div>
+      <div class="today-blk"><span class="v tnum">{{ ai.cc_tok }}</span></div>
+      {% endif %}
+      {% if ai.codex_on %}
       <div class="rule"></div>
       <div class="section-label">{{ t.ai_codex_quota }}</div>
       <div class="quota"><div class="top"><span class="qname">{{ t.ai_five_hour }}</span><span class="qright"><span class="qpct tnum">{{ ai.cx_five_pct }}%</span><span class="qreset">{{ ai.cx_five_reset }}</span></span></div>
         <div class="bar"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
       <div class="quota"><div class="top"><span class="qname">{{ t.ai_week }}</span><span class="qright"><span class="qpct tnum">{{ ai.cx_week_pct }}%</span><span class="qreset">{{ ai.cx_week_reset }}</span></span></div>
         <div class="bar"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+      {% endif %}
     </div>
     <div class="cost-bottom">
       <div class="cost-row"><span class="lbl">{{ t.ai_today_official }}</span><span class="stat-big tnum">{{ ai.today_cost }}</span></div>
@@ -58,9 +71,9 @@
       <div class="chart">
       {% for c in ai.chart %}<div class="col"><div class="v tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="seg-b" style="flex:{{ c.cx_h }}"></div><div class="seg-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
       </div>
-      <div class="legend" style="margin-top:8px;"><span><i class="hatch-dense"></i>Claude Code</span><span><i class="hatch-sparse"></i>Codex</span></div>
+      <div class="legend" style="margin-top:8px;"><span><i class="hatch-dense"></i>Claude Code</span>{% if ai.codex_on %}<span><i class="hatch-sparse"></i>Codex</span>{% endif %}</div>
     </div>
   </div>
 </div>
-<div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span><span>2 / 5</span></div>
+<div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span><span>{{ t.foot_page_ai }}</span></div>
 </body></html>

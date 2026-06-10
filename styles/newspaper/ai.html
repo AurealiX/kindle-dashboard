@@ -20,15 +20,17 @@
 .legend i{display:inline-block;width:13px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
 </style></head><body>
 <div class="plate"><div class="name">{{ t.ai_nameplate }}<span class="sm">AI USAGE</span></div><div class="ed">{{ now }}</div></div>
-<div class="dateline"><span>CLAUDE CODE · CODEX · CCUSAGE</span><span>{{ t.ai_dateline_today }} {{ ai.today_cost }}</span></div>
+<div class="dateline"><span>CLAUDE CODE · {% if ai.codex_on %}CODEX · {% endif %}CCUSAGE</span><span>{{ t.ai_dateline_today }} {{ ai.today_cost }}</span></div>
 <div class="main">
   <div class="col col-l">
     <div class="kick">{{ t.ai_claude_quota }}</div>
     <div class="bd"><div class="top"><span class="k">{{ t.ai_five_hour }}</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.five_pct }}%"></i></div></div>
     <div class="bd"><div class="top"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.week_pct }}%"></i></div></div>
+    {% if ai.codex_on %}
     <div class="kick mt">{{ t.ai_codex_quota }}</div>
     <div class="bd"><div class="top"><span class="k">{{ t.ai_five_hour }}</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.cx_five_pct }}%"></i></div></div>
     <div class="bd"><div class="top"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="bar"><i class="hatch-a" style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+    {% endif %}
     <div class="cost">
       <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
       <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-md tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
@@ -41,12 +43,12 @@
       <div class="c"><div class="l">{{ t.ai_last_30d }}</div><div class="n-lg tnum">{{ ai.tok_30d }}</div></div>
       <div class="c"><div class="l">{{ t.ai_total }}</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
     </div>
-    <div class="kick mt">{{ t.ai_kick_trend }}<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+    <div class="kick mt">{{ t.ai_kick_trend }}<span class="aux">cc {{ ai.cc_cost }}{% if ai.codex_on %} · cx {{ ai.cx_cost }}{% endif %}</span></div>
     <div class="chart-wrap">
       <div class="chart">
       {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
       </div>
-      <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
+      <div class="legend"><span><i class="hatch-a"></i>Claude</span>{% if ai.codex_on %}<span><i class="hatch-b"></i>Codex</span>{% endif %}</div>
     </div>
   </div>
 </div>

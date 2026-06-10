@@ -22,12 +22,14 @@
 <div class="cluster"><div class="ttl"><span class="chip">AI</span>{{ t.ai_title }}</div><div class="meta tnum">{{ now }}</div></div>
 <div class="main">
   <div class="panel col-l">
-    <div class="plate">{{ t.ai_dial }}<span class="aux">Claude · Codex</span></div>
+    <div class="plate">{{ t.ai_dial }}<span class="aux">Claude{% if ai.codex_on %} · Codex{% endif %}</span></div>
     <div class="gz-grid">
       {% set d = [ai.five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.five_pct }}%</div><div class="cap">{{ t.ai_cc_5h }}</div><div class="sub">{{ ai.five_reset }}</div></div>
       {% set d = [ai.week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.week_pct }}%</div><div class="cap">{{ t.ai_cc_week }}</div><div class="sub">{{ ai.week_reset }}</div></div>
+      {% if ai.codex_on %}
       {% set d = [ai.cx_five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_five_pct }}%</div><div class="cap">{{ t.ai_cx_5h }}</div><div class="sub">{{ ai.cx_five_reset }}</div></div>
       {% set d = [ai.cx_week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_week_pct }}%</div><div class="cap">{{ t.ai_cx_week }}</div><div class="sub">{{ ai.cx_week_reset }}</div></div>
+      {% endif %}
     </div>
     <div class="cost">
       <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-hero tnum">{{ ai.today_cost }}</span></div>
@@ -41,12 +43,12 @@
       <div class="c"><div class="l">{{ t.ai_30d }}</div><div class="n-lg tnum">{{ ai.tok_30d }}</div></div>
       <div class="c"><div class="l">{{ t.ai_all }}</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
     </div>
-    <div class="plate" style="margin-top:12px;">{{ t.ai_trend }}<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+    <div class="plate" style="margin-top:12px;">{{ t.ai_trend }}<span class="aux">cc {{ ai.cc_cost }}{% if ai.codex_on %} · cx {{ ai.cx_cost }}{% endif %}</span></div>
     <div class="chart-wrap" style="margin-top:0;">
       <div class="chart">
       {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
       </div>
-      <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
+      <div class="legend"><span><i class="hatch-a"></i>Claude</span>{% if ai.codex_on %}<span><i class="hatch-b"></i>Codex</span>{% endif %}</div>
     </div>
   </div>
 </div>

@@ -87,6 +87,7 @@ def empty_ai():
         "chart": [],        # [{day:"27", cc_h:0-100, cx_h:0-100, val:"1.2M"}] 近 7 天
         "custom_total": "",  # 自定义倍率折算的今日实际花费,如 "¥12.34"
         "custom_name": "",   # 中转站/供应商名
+        "codex_on": True,    # ai_usage.codex_enabled:False=模板隐藏 Codex 额度块/图例(只看 Claude)
     }
 
 

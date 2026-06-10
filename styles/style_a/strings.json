@@ -36,6 +36,8 @@
     "ai_last_30d": "近 30 天",
     "ai_total": "累计",
     "ai_trend_7d": "近 7 天趋势",
+    "ai_today_tokens": "今日 TOKENS",
+    "foot_page_ai": "AI 用量",
 
     "dev_kicker": "仪表盘 · 设备监控",
     "dev_title": "设备监控",
@@ -117,6 +119,8 @@
     "ai_last_30d": "Last 30d",
     "ai_total": "Total",
     "ai_trend_7d": "Last 7-Day Trend",
+    "ai_today_tokens": "TODAY'S TOKENS",
+    "foot_page_ai": "AI Usage",
 
     "dev_kicker": "DASHBOARD · DEVICES",
     "dev_title": "Device Monitor",

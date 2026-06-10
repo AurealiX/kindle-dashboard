@@ -25,15 +25,12 @@ bash installers/macos/install.sh
 
 The script automatically: creates a virtualenv, installs dependencies, generates `config.yaml` from the example, installs autostart, and starts the service. When done it prints your **settings-page link** and **Kindle image URL**. It only asks you two things along the way (auto-download the render engine? enable AI usage?) — pressing Enter takes the defaults.
 
-> On **Windows**, there is no one-command installer yet. Set it up manually:
+> On **Windows**, run the installer from an **admin** PowerShell (admin is needed for the firewall rule so the Kindle can reach the server):
 > ```powershell
-> py -3 -m venv .venv
-> .\.venv\Scripts\python -m pip install -r server\requirements.txt
-> .\.venv\Scripts\python -m playwright install chromium
-> $env:KINDLE_CONFIG = "$PWD\config.local.yaml"
-> .\.venv\Scripts\python -m server.run
+> git clone <repo-url> kindle-dashboard ; cd kindle-dashboard
+> powershell -ExecutionPolicy Bypass -File installers\windows\install.ps1
 > ```
-> Then open `http://localhost:8585/setup?token=...` (the token is printed at startup and stored in `config.local.yaml`).
+> It creates the venv, installs dependencies (incl. Windows timezone data), detects Chrome (or offers bundled Chromium), optionally installs Node + ccusage, externalizes the config to `%USERPROFILE%\.config\kindle-dashboard\config.yaml`, fixes the timezone, opens the firewall port, registers a **scheduled task** (`KindleDashboard`, runs at logon, no execution time limit), starts the service, and prints your settings-page link. Re-running is safe (idempotent). Add `-Yes` for non-interactive defaults.
 
 **② Configure via web** (point-and-click, WYSIWYG)
 
@@ -170,7 +167,7 @@ sh installers/kindle/uninstall.sh       # restore Kindle: stop dashboard, remove
 bash installers/macos/uninstall.sh      # stop the Mac service (add --purge to also delete venv/data for a full wipe)
 ```
 
-> On Windows, stop the running `python -m server.run` process and remove any Task Scheduler entry you created. To undo the Claude status line, restore the `~/.claude/settings.json` backup written next to it (`settings.json.kindle-bak.<timestamp>`).
+> On Windows: `Unregister-ScheduledTask -TaskName KindleDashboard -Confirm:$false`, stop the running `python -m server.run` process, and optionally remove the "Kindle Dashboard" firewall rule. The config in `%USERPROFILE%\.config\kindle-dashboard\` stays unless you delete it. To undo the Claude status line, restore the `~/.claude/settings.json` backup written next to it (`settings.json.kindle-bak.<timestamp>`).
 
 ## NAS Docker deploy
 

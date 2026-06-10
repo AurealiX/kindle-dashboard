@@ -1,6 +1,7 @@
 <!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
 {{ css|safe }}
-/* 设备页:动态遍历 N 台机器,自适应 1-N 台。朴素通用版,精美风格见 P2。 */
+/* 设备页:动态遍历 N 台机器,自适应 1-N 台。
+   单台 = 全幅大版式(左:CPU/内存大数字+横条,底部 IO;右:分区存储);多台 = 卡片网格。 */
 .dev-grid{display:flex;flex-wrap:wrap;gap:16px 28px;}
 .dev-card{flex:1 1 300px;min-width:270px;}
 .dev-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
@@ -15,13 +16,75 @@
 .vol .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
 .vol .k{font-size:13px;font-weight:700;}.vol .v{font-size:11px;color:var(--ink3);font-weight:600;}
 .dev-empty{margin:48px 0;color:var(--ink3);text-align:center;font-size:15px;}
+/* —— 单台全幅版式 —— */
+.s-l{width:312px;flex-shrink:0;display:flex;flex-direction:column;}
+.s-r{flex:1;min-width:0;display:flex;flex-direction:column;}
+.s-metric{margin-bottom:20px;}
+.s-metric .toplab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+.s-metric .k{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);}
+.s-metric .sub{font-size:12px;color:var(--ink3);font-weight:600;}
+.s-metric .pct{font-size:50px;font-weight:800;line-height:1;letter-spacing:-2px;margin-bottom:8px;}
+.s-metric .bar{height:14px;}
+.io-card{margin-top:auto;border-top:2px solid var(--ink);padding-top:12px;}
+.io-card .r{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;}
+.io-card .r .k{font-size:13px;font-weight:700;color:var(--ink2);}
+.io-card .r .v{font-size:15px;font-weight:800;}
+.s-vol{margin-bottom:15px;}
+.s-vol .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
+.s-vol .k{font-size:17px;font-weight:800;}
+.s-vol .v{font-size:13px;color:var(--ink3);font-weight:600;}
+.s-vol .bar{height:11px;}
+.vol-wrap{flex:1;min-height:0;overflow:hidden;}
+.vol-wrap.two{display:grid;grid-template-columns:1fr 1fr;gap:2px 26px;align-content:start;}
 </style></head><body>
 <div class="masthead">
-  <div><div class="kicker">{{ t.dev_kicker }}</div><div class="title">{{ t.dev_title }}</div></div>
+  <div><div class="kicker">{{ t.dev_kicker }}</div><div class="title">{% if device.machines|length == 1 %}{{ device.machines[0].name }}{% else %}{{ t.dev_title }}{% endif %}</div></div>
   <div class="meta">{{ now }}</div>
 </div>
 <div class="main">
-{% if device.machines %}
+{% if device.machines|length == 1 %}
+  {% set m = device.machines[0] %}
+  <div class="s-l">
+    {% if m.show.cpu %}
+    <div class="s-metric">
+      <div class="toplab"><span class="k">CPU</span></div>
+      <div class="pct tnum">{{ m.cpu }}%</div>
+      <div class="bar"><i style="width:{{ m.cpu }}%"></i></div>
+    </div>
+    {% endif %}
+    {% if m.show.mem %}
+    <div class="s-metric">
+      <div class="toplab"><span class="k">{{ t.dev_mem }}</span><span class="sub tnum">{{ m.mem_used }} / {{ m.mem_total }}</span></div>
+      <div class="pct tnum">{{ m.mem }}%</div>
+      <div class="bar"><i style="width:{{ m.mem }}%"></i></div>
+    </div>
+    {% endif %}
+    {% if m.show.net or m.show.disk_io %}
+    <div class="io-card">
+      {% if m.show.net %}
+      <div class="r"><span class="k">{{ t.dev_network }} {{ t.dev_net_down }}</span><span class="v tnum">{{ m.net_rx }}</span></div>
+      <div class="r"><span class="k">{{ t.dev_network }} {{ t.dev_net_up }}</span><span class="v tnum">{{ m.net_tx }}</span></div>
+      {% endif %}
+      {% if m.show.disk_io %}
+      <div class="r"><span class="k">{{ t.dev_disk }} {{ t.dev_disk_read }}</span><span class="v tnum">{{ m.disk_r }}</span></div>
+      <div class="r"><span class="k">{{ t.dev_disk }} {{ t.dev_disk_write }}</span><span class="v tnum">{{ m.disk_w }}</span></div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="vrule"></div>
+  <div class="s-r">
+    <div class="section-label">{{ t.dev_storage }}<span class="aux tnum">{{ m.vols|length }}</span></div>
+    <div class="vol-wrap{% if m.vols|length > 4 %} two{% endif %}">
+      {% for v in m.vols %}
+      <div class="s-vol">
+        <div class="top"><span class="k">{{ v.name }}</span><span class="v tnum">{{ v.used }} / {{ v.total }} · {{ v.pct }}%</span></div>
+        <div class="bar"><i style="width:{{ v.pct }}%"></i></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% elif device.machines %}
   <div class="dev-grid">
   {% for m in device.machines %}
     <div class="dev-card">

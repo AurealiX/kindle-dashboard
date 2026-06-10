@@ -21,27 +21,29 @@
 </style></head><body>
 <div class="head"><div class="ttl">{{ t.ai_title }}</div><div class="meta tnum">{{ now }}</div></div>
 <div class="bento">
-  <div class="card c-cc">
+  <div class="card c-cc"{% if not ai.codex_on %} style="grid-row:1 / span 2;"{% endif %}>
     <div class="lab">{{ t.ai_claude_quota }}</div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_5h }}</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.five_pct }}%"></i></div></div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.week_pct }}%"></i></div></div>
   </div>
+  {% if ai.codex_on %}
   <div class="card c-cx">
     <div class="lab">{{ t.ai_codex_quota }}</div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_5h }}</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
   </div>
+  {% endif %}
   <div class="card hero c-cost">
     <div class="cost-row"><span class="l">{{ t.ai_today_official }}</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
     <div class="cost-row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-md tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
   </div>
   <div class="card c-chart">
-    <div class="lab">{{ t.ai_trend }}<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+    <div class="lab">{{ t.ai_trend }}<span class="aux">cc {{ ai.cc_cost }}{% if ai.codex_on %} · cx {{ ai.cx_cost }}{% endif %}</span></div>
     <div class="chart-wrap">
       <div class="chart">
       {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
       </div>
-      <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
+      <div class="legend"><span><i class="hatch-a"></i>Claude</span>{% if ai.codex_on %}<span><i class="hatch-b"></i>Codex</span>{% endif %}</div>
     </div>
   </div>
   <div class="card plain c-tok">
